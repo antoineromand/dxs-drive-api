@@ -1,0 +1,21 @@
+name: CI/CD Pipeline - Test & Tag Creation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Java 17 Install
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Run Test
+        run: ./gradlew clean test
+  
