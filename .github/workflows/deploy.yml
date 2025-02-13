@@ -1,12 +1,12 @@
-name: CI/CD Pipeline - Test & Tag Creation
+name: CI/CD Pipeline - Deploy
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
 
 jobs:
-  tests:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,6 +16,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-      - name: Run Test
-        run: ./gradlew clean test
-  
+      - name: Build Project
+        run: ./gradlew build -x test
+      - name: Extract Tag Version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV

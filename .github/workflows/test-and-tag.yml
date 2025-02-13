@@ -1,0 +1,45 @@
+name: CI/CD Pipeline - Test & Tag Creation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Java 17 Install
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Run Test
+        run: ./gradlew clean test
+
+  tag_creation:
+    needs: tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+      - name: Get Project Version
+        run: |
+          VERSION=$(./gradlew properties -q | grep "version:" | awk '{print $2}')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      - name: Check If Tag Exists
+        run: |
+          if git rev-parse v${VERSION} >/dev/null 2>&1; then
+            echo "::error::Tag v${VERSION} already exists. Please increment the version before deploying."
+            exit 1
+          fi
+      - name: Create Tag
+        run: |
+          git tag -a v${VERSION} -m "Release version ${VERSION}"
+          git push origin v${VERSION}
