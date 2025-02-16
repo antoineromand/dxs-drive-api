@@ -38,6 +38,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH }}
           source: "build/libs/DriveProject-${{ env.VERSION }}.jar"
           target: "/home/${{ secrets.SERVER_LOC }}/drive-api/build/libs"
+          strip_components: 2
       - name: Deploy on server
         uses: appleboy/ssh-action@master
         with:
@@ -52,7 +53,7 @@ jobs:
             docker build --build-arg JAR_VERSION=${{ env.VERSION }} -t driveapi:latest -t driveapi:${{ env.VERSION }} .
             echo "✅ Image built successfully: driveapi:${{ env.VERSION }}"
             echo "🚀 Restarting containers..."
-            docker compose up -d --force-recreate --no-deps api
+            docker compose up --force-recreate --no-deps -d api
   on-failure:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
