@@ -48,12 +48,12 @@ jobs:
           script: |
             cd /home/${{ secrets.SERVER_LOC }}/drive-api
             echo "🚀 Stopping existing containers..."
-            docker compose down
+            docker-compose rm --stop --force api
             echo "📦 Building the latest Docker image..."
             docker build --build-arg JAR_VERSION=${{ env.VERSION }} -t driveapi:latest -t driveapi:${{ env.VERSION }} .
             echo "✅ Image built successfully: driveapi:${{ env.VERSION }}"
             echo "🚀 Restarting containers..."
-            docker compose up -d --build api
+            docker-compose up -d --build api
   on-failure:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
