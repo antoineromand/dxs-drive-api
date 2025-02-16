@@ -1,28 +1,42 @@
 version: '3.1'
 
 services:
-
   mongo:
     image: mongo
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     ports:
-      - 27017:27017
+      - ${MONGO_PORT}:${MONGO_PORT}
     volumes:
       - mongo_data:/data/db
+
   mongo-express:
     image: mongo-express
     restart: always
     ports:
       - 8081:8081
     environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: example
-      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongo:27017/
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/
       ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongo
+
+  api:
+    build:
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - ${SPRING_APP_PORT}:${SPRING_APP_PORT}
+    depends_on:
+      - mongo
+    environment:
+      SPRING_DATA_MONGODB_URI: ${SPRING_MONGO_URI}
+      SPRING_APPLICATION_NAME: ${SPRING_APP_NAME}
+      SERVER_PORT: ${SPRING_APP_PORT}
 
 volumes:
   mongo_data:
-
