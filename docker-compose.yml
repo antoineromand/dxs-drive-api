@@ -26,8 +26,7 @@ services:
       - mongo
 
   api:
-    build:
-      dockerfile: Dockerfile
+    image: driveapi:latest
     restart: always
     ports:
       - ${SPRING_APP_PORT}:${SPRING_APP_PORT}

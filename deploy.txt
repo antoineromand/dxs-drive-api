@@ -1,0 +1,3 @@
+export VERSION=$(./gradlew properties -q | grep "version:" | awk '{print $2}')
+docker build --build-arg VERSION=${VERSION} -t driveapi:${VERSION} .
+docker compose up -d --build                                                                                               1 ↵
