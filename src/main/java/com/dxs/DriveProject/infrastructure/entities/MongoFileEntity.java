@@ -8,6 +8,8 @@ import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.Field;
 
+import com.dxs.DriveProject.domain.File;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -55,5 +57,24 @@ public class MongoFileEntity {
     @Field(name = "created_at")
     private Date createdAt;
 
-        
+    public File toDomain() {
+        return new File(this.id, this.ownerId, this.folderId, this.filename, this.path, this.bookmark, this.size,
+                this.type, this.softDelete, this.createdAt);
+    }
+
+    public static MongoFileEntity fromDomain(File file) {
+        return MongoFileEntity.builder()
+                .id(file.getId())
+                .ownerId(file.getOwnerId())
+                .folderId(file.getFolderId())
+                .filename(file.getFilename())
+                .path(file.getPath())
+                .bookmark(file.isBookmarked())
+                .size(file.getSize())
+                .type(file.getType())
+                .softDelete(file.isSoftDeleted())
+                .createdAt(file.getCreatedAt())
+                .build();
+    }
+
 }

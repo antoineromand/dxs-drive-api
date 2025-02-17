@@ -1,6 +1,6 @@
 package com.dxs.DriveProject.domain;
 
-import java.sql.Date;
+import java.util.Date;
 import java.util.UUID;
 
 public class File {
@@ -69,7 +69,7 @@ public class File {
         return path;
     }
 
-    public Boolean getBookmark() {
+    public Boolean isBookmarked() {
         return bookmark;
     }
 
@@ -77,7 +77,7 @@ public class File {
         return type;
     }
 
-    public Boolean getSoftDelete() {
+    public Boolean isSoftDeleted() {
         return softDelete;
     }
 
