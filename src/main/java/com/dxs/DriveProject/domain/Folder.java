@@ -10,20 +10,21 @@ public class Folder {
     private String foldername;
     private String path;
     private String parentId;
-    private Boolean isBookmarked;
+    private Boolean bookmark;
     private Long size;
-    private Boolean isSoftDeleted;
+    private Boolean softDeleted;
     private Date createdAt;
 
-    public Folder(String id, UUID ownerId, String foldername, String path, String parentId, Boolean isBookmarked, Boolean isSoftDeleted,
+    public Folder(String id, UUID ownerId, String foldername, String path, String parentId, Boolean bookmark,
+            Boolean softDeleted,
             Date createdAt) {
         this.id = id;
         this.ownerId = ownerId;
         this.foldername = foldername;
         this.parentId = parentId;
         this.path = path;
-        this.isBookmarked = isBookmarked;
-        this.isSoftDeleted = isSoftDeleted;
+        this.bookmark = bookmark;
+        this.softDeleted = softDeleted;
         this.createdAt = createdAt;
     }
 
@@ -40,11 +41,11 @@ public class Folder {
     }
 
     public void markAsDeleted() {
-        this.isSoftDeleted = true;
+        this.softDeleted = true;
     }
 
     public void toggleBookmark() {
-        this.isBookmarked = !this.isBookmarked;
+        this.bookmark = !this.bookmark;
     }
 
     public String getId() {
@@ -67,21 +68,20 @@ public class Folder {
         return parentId;
     }
 
-    public Boolean getIsBookmarked() {
-        return isBookmarked;
+    public Boolean isBookmarked() {
+        return bookmark;
     }
 
     public Long getSize() {
         return size;
     }
 
-    public Boolean getIsSoftDeleted() {
-        return isSoftDeleted;
+    public Boolean isSoftDeleted() {
+        return softDeleted;
     }
 
     public Date getCreatedAt() {
         return createdAt;
     }
 
-    
 }
