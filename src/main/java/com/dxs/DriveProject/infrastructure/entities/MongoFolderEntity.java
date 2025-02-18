@@ -1,6 +1,6 @@
 package com.dxs.DriveProject.infrastructure.entities;
 
-import java.sql.Date;
+import java.util.Date;
 import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
@@ -51,9 +51,15 @@ public class MongoFolderEntity {
     }
 
     public static MongoFolderEntity fromDomain(Folder folder) {
-        return MongoFolderEntity.builder().id(folder.getId()).ownerId(folder.getOwnerId())
-                .parentId(folder.getParentId()).path(folder.getPath()).bookmark(folder.isBookmarked())
-                .createdAt(folder.getCreatedAt()).softDelete(folder.isSoftDeleted())
-                .foldername(folder.getFoldername()).build();
+        return MongoFolderEntity.builder()
+                .id(folder.getId())
+                .ownerId(folder.getOwnerId())
+                .parentId(folder.getParentId())
+                .path(folder.getPath())
+                .bookmark(folder.isBookmarked())
+                .createdAt(folder.getCreatedAt())
+                .softDelete(folder.isSoftDeleted())
+                .foldername(folder.getFoldername())
+                .build();
     }
 }

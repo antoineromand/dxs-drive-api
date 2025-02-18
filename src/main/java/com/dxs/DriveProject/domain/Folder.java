@@ -1,7 +1,6 @@
 package com.dxs.DriveProject.domain;
 
-import java.sql.Date;
-import java.util.ArrayList;
+import java.util.Date;
 import java.util.UUID;
 
 public class Folder {
@@ -26,14 +25,6 @@ public class Folder {
         this.bookmark = bookmark;
         this.softDeleted = softDeleted;
         this.createdAt = createdAt;
-    }
-
-    public Long getSize(ArrayList<File> filesInFolder) {
-        Long res = 0L;
-        for (File file : filesInFolder) {
-            res += file.getSize();
-        }
-        return res;
     }
 
     public void renameFolder(String newFolderName) {
