@@ -16,4 +16,8 @@ public record FileType(String type) {
     public String getType() {
         return type;
     }
+
+    public static Boolean isTypeValide(String type) {
+        return ALLOWED_FILE_TYPES.contains(type);
+    }
 }
