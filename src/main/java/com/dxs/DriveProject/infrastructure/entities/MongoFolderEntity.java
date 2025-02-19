@@ -1,7 +1,6 @@
 package com.dxs.DriveProject.infrastructure.entities;
 
 import java.util.Date;
-import java.util.UUID;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.index.Indexed;
@@ -28,7 +27,7 @@ public class MongoFolderEntity {
     private String id;
     @Indexed
     @Field(name = "owner_id")
-    private UUID ownerId;
+    private String ownerId;
     @Indexed
     @Field(name = "parent_id")
     private String parentId;

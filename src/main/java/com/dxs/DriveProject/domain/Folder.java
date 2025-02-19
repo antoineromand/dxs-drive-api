@@ -1,11 +1,10 @@
 package com.dxs.DriveProject.domain;
 
 import java.util.Date;
-import java.util.UUID;
 
 public class Folder {
     private String id;
-    private UUID ownerId;
+    private String ownerId;
     private String foldername;
     private String path;
     private String parentId;
@@ -14,7 +13,7 @@ public class Folder {
     private Boolean softDeleted;
     private Date createdAt;
 
-    public Folder(String id, UUID ownerId, String foldername, String path, String parentId, Boolean bookmark,
+    public Folder(String id, String ownerId, String foldername, String path, String parentId, Boolean bookmark,
             Boolean softDeleted,
             Date createdAt) {
         this.id = id;
@@ -25,6 +24,10 @@ public class Folder {
         this.bookmark = bookmark;
         this.softDeleted = softDeleted;
         this.createdAt = createdAt;
+    }
+
+    public void moveToFolder(String newParent) {
+        this.parentId = newParent;
     }
 
     public void renameFolder(String newFolderName) {
@@ -43,7 +46,7 @@ public class Folder {
         return id;
     }
 
-    public UUID getOwnerId() {
+    public String getOwnerId() {
         return ownerId;
     }
 

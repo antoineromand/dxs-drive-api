@@ -1,11 +1,10 @@
 package com.dxs.DriveProject.domain;
 
 import java.util.Date;
-import java.util.UUID;
 
 public class File {
     private String id;
-    private UUID ownerId;
+    private String ownerId;
     private String folderId;
     private String filename;
     private String path;
@@ -15,7 +14,8 @@ public class File {
     private Boolean softDelete;
     private Date createdAt;
 
-    public File(String id, UUID ownerId, String folderId, String filename, String path, Boolean bookmark, Long size,
+    public File(String id,
+            String ownerId, String folderId, String filename, String path, Boolean bookmark, Long size,
             String type, Boolean softDelete, Date createdAt) {
         this.id = id;
         this.ownerId = ownerId;
@@ -53,7 +53,7 @@ public class File {
         return id;
     }
 
-    public UUID getOwnerId() {
+    public String getOwnerId() {
         return ownerId;
     }
 
