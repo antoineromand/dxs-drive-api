@@ -9,7 +9,6 @@ public class Folder {
     private String path;
     private String parentId;
     private Boolean bookmark;
-    private Long size;
     private Boolean softDeleted;
     private Date createdAt;
 
@@ -73,10 +72,6 @@ public class Folder {
 
     public Boolean isBookmarked() {
         return bookmark;
-    }
-
-    public Long getSize() {
-        return size;
     }
 
     public Boolean isSoftDeleted() {
