@@ -2,6 +2,8 @@ package com.dxs.DriveProject.domain;
 
 import java.util.Date;
 
+import com.dxs.DriveProject.domain.object_values.FileType;
+
 public class File {
     private String id;
     private String ownerId;
@@ -10,7 +12,7 @@ public class File {
     private String path;
     private Boolean bookmark;
     private Long size;
-    private String type;
+    private FileType fileType;
     private Boolean softDelete;
     private Date createdAt;
 
@@ -30,9 +32,6 @@ public class File {
         if (size == null || size <= 0) {
             throw new IllegalArgumentException("Size must be greater than 0");
         }
-        if (type == null || !isValidFileType(type)) {
-            throw new IllegalArgumentException("Invalid file type: " + type);
-        }
         this.id = id;
         this.ownerId = ownerId;
         this.folderId = folderId;
@@ -40,13 +39,9 @@ public class File {
         this.path = path;
         this.bookmark = bookmark;
         this.size = size;
-        this.type = type;
+        this.fileType = new FileType(type);
         this.softDelete = softDelete;
         this.createdAt = createdAt;
-    }
-
-    private boolean isValidFileType(String type) {
-        return type.matches("application/pdf|image/png|image/jpeg|text/plain|application/zip");
     }
 
     public void moveToFolder(String newFolderId) {
@@ -94,7 +89,7 @@ public class File {
     }
 
     public String getType() {
-        return type;
+        return fileType.getType();
     }
 
     public Boolean isSoftDeleted() {
