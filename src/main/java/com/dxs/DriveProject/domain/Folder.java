@@ -16,6 +16,15 @@ public class Folder {
     public Folder(String id, String ownerId, String foldername, String path, String parentId, Boolean bookmark,
             Boolean softDeleted,
             Date createdAt) {
+        if (ownerId == null || ownerId.isBlank()) {
+            throw new IllegalArgumentException("Owner ID is required and cannot be empty");
+        }
+        if (foldername == null || foldername.isBlank()) {
+            throw new IllegalArgumentException("Foldername is required and cannot be empty");
+        }
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Path is required and cannot be empty");
+        }
         this.id = id;
         this.ownerId = ownerId;
         this.foldername = foldername;

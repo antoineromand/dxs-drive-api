@@ -4,6 +4,7 @@ import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
@@ -48,6 +49,32 @@ public class FolderTests {
         folder.toggleBookmark();
 
         assertFalse(folder.isBookmarked());
+    }
+
+    @Test
+    void shouldThrowExceptionIfOwnerIdIsEmpty() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            new Folder("e", "", "folder", "/uploads/xcvzrr", null, false, false, new Date());
+        });
+
+        assertEquals("Owner ID is required and cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void shouldThrowExceptionIfFoldernameIsEmpty() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            new Folder("e", "e", "", "/uploads/xcvzrr", null, false, false, new Date());
+        });
+
+        assertEquals("Foldername is required and cannot be empty", exception.getMessage());
+    }
+
+    @Test
+    void shouldThrowExceptionIfPathIsEmpty() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            new Folder("e", "e", "folder", "", null, false, false, new Date());
+        });
+        assertEquals("Path is required and cannot be empty", exception.getMessage());
     }
 
 }
