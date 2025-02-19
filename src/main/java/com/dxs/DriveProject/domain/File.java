@@ -17,6 +17,22 @@ public class File {
     public File(String id,
             String ownerId, String folderId, String filename, String path, Boolean bookmark, Long size,
             String type, Boolean softDelete, Date createdAt) {
+
+        if (ownerId == null || ownerId.isBlank()) {
+            throw new IllegalArgumentException("Owner ID is required and cannot be empty");
+        }
+        if (filename == null || filename.isBlank()) {
+            throw new IllegalArgumentException("Filename is required and cannot be empty");
+        }
+        if (path == null || path.isBlank()) {
+            throw new IllegalArgumentException("Path is required and cannot be empty");
+        }
+        if (size == null || size <= 0) {
+            throw new IllegalArgumentException("Size must be greater than 0");
+        }
+        if (type == null || !isValidFileType(type)) {
+            throw new IllegalArgumentException("Invalid file type: " + type);
+        }
         this.id = id;
         this.ownerId = ownerId;
         this.folderId = folderId;
@@ -27,6 +43,10 @@ public class File {
         this.type = type;
         this.softDelete = softDelete;
         this.createdAt = createdAt;
+    }
+
+    private boolean isValidFileType(String type) {
+        return type.matches("application/pdf|image/png|image/jpeg|text/plain|application/zip");
     }
 
     public void moveToFolder(String newFolderId) {
