@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import com.dxs.DriveProject.domain.Folder;
 
-public class MongoFolderEntityTests {
+public class MongoFolderEntityTest {
     @Test
     void shouldConvertBetweenMongoEntityAndDomainCorrectly() {
         String foldername = "test";

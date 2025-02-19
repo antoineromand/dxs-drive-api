@@ -17,7 +17,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 import org.springframework.web.multipart.MultipartFile;
 
-public class LocalStorageServiceTests {
+public class LocalStorageServiceTest {
     private MultipartFile file;
     private LocalStorageService localStorageService;
 

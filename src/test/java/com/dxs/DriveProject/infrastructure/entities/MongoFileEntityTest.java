@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import com.dxs.DriveProject.domain.File;
 
-public class MongoFileEntityTests {
+public class MongoFileEntityTest {
 
     @Test
     void shouldConvertBetweenMongoEntityAndDomainCorrectly() {
