@@ -8,4 +8,8 @@ public interface ICustomMongoFolderRepository {
     MongoFolderEntity insert(MongoFolderEntity folder);
 
     Optional<MongoFolderEntity> findById(String id);
+
+    boolean isExist(String folderId);
+
+    boolean isOwnedById(String folderId, String userId);
 }
