@@ -4,15 +4,21 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -20,8 +26,10 @@ import static org.mockito.Mockito.when;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dxs.DriveProject.domain.File;
 import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
 import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
+import com.dxs.DriveProject.infrastructure.entities.MongoFileEntity;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
@@ -70,7 +78,7 @@ public class UploadFileTest {
         String userId = "xxx-xx1";
         String folderId = "xxx-xx2";
 
-        when(folderRepository.isExist(folderId)).thenReturn(false);
+        when(folderRepository.isExist(eq(folderId))).thenReturn(false);
 
         assertThrows(FolderNotFoundException.class, () -> {
             this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
@@ -163,6 +171,39 @@ public class UploadFileTest {
         verify(storageService, times(1)).writeFile(validFile, "user123", "123");
 
         assertEquals(expectedPath, storageService.writeFile(validFile, "user123", "123"));
+
+    }
+
+    @Test
+    void shouldCreateFileObjectWithCorrectValues() throws IOException {
+        String userId = "user123";
+        MockMultipartFile validFile = new MockMultipartFile(
+                "file", "image.jpg", "image/jpeg", new byte[10]);
+
+        String expectedPath = "/uploads/user123/image.jpg";
+
+        when(storageService.writeFile(any(MultipartFile.class), any(String.class), isNull()))
+                .thenReturn(expectedPath);
+
+        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
+            MongoFileEntity mockEntity = mock(MongoFileEntity.class);
+
+            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
+                    .thenReturn(mockEntity);
+
+            uploadFileUseCase.execute(List.of(validFile), userId, null);
+
+            ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
+            mockedStatic.verify(() -> MongoFileEntity.fromDomain(fileCaptor.capture()), times(1));
+
+            File capturedFile = fileCaptor.getValue();
+
+            assertEquals(userId, capturedFile.getOwnerId());
+            assertEquals("image.jpg", capturedFile.getFilename());
+            assertEquals(expectedPath, capturedFile.getPath());
+            assertNull(capturedFile.getFolderId());
+
+        }
 
     }
 
