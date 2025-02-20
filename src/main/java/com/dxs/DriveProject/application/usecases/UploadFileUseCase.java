@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.domain.object_values.FileType;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
@@ -27,10 +28,16 @@ public class UploadFileUseCase {
             throw new IllegalArgumentException("Invalid parameters");
         }
         long maxSizeFile = 50L * 1024 * 1024;
+        // Si folderId est précisé, vérifier si le fichier existe.
+        if (folderId != null && !folderRepository.isExist(folderId)) {
+            throw new FolderNotFoundException(folderId);
+        }
         for (MultipartFile file : files) {
-            if (!FileType.isTypeValide(file.getContentType()) || file.getSize() > 0 || file.getSize() > maxSizeFile) {
+            if (!FileType.isTypeValide(file.getContentType()) || file.getSize() < 0 || file.getSize() > maxSizeFile) {
                 throw new IllegalArgumentException("Invalid file");
             }
+            String path = storageService.writeFile(file, userId, folderId);
         }
     }
+
 }
