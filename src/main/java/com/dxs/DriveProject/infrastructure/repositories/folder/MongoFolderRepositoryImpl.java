@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 
 @Repository
-
 public class MongoFolderRepositoryImpl implements
         ICustomMongoFolderRepository {
 

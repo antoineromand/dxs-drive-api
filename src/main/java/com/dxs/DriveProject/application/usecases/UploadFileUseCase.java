@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
 import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.domain.object_values.FileType;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
@@ -31,6 +32,9 @@ public class UploadFileUseCase {
         // Si folderId est précisé, vérifier si le fichier existe.
         if (folderId != null && !folderRepository.isExist(folderId)) {
             throw new FolderNotFoundException(folderId);
+        }
+        if (folderId != null && !folderRepository.isOwnedById(folderId, userId)) {
+            throw new AccessFolderUnauthorizedException(folderId, userId);
         }
         for (MultipartFile file : files) {
             if (!FileType.isTypeValide(file.getContentType()) || file.getSize() < 0 || file.getSize() > maxSizeFile) {

@@ -13,12 +13,14 @@ import org.junit.jupiter.params.provider.MethodSource;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
 import org.mockito.Mockito;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
 import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
@@ -31,8 +33,8 @@ public class UploadFileTest {
     private ICustomMongoFolderRepository folderRepository;
     private UploadFileUseCase uploadFileUseCase;
 
-    private static int invalidSize = 51 * 1024 * 1024;
-    private static int validSize = 3 * 1240 * 1024;
+    private final static int INVALID_SIZE = 51 * 1024 * 1024;
+    private final static int VALID_SIZE = 3 * 1240 * 1024;
 
     @BeforeEach
     public void init() {
@@ -53,7 +55,7 @@ public class UploadFileTest {
 
     private static List<Arguments> provideInvalidInputs() {
         return List.of(
-                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "text/plain", new byte[validSize])),
+                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "text/plain", new byte[VALID_SIZE])),
                         null, "t"),
                 Arguments.of(null, "xxx-xxxx", null),
                 Arguments.of(List.of(), "xxx-xxxx", null));
@@ -68,8 +70,6 @@ public class UploadFileTest {
         String userId = "xxx-xx1";
         String folderId = "xxx-xx2";
 
-        Boolean expectedResult = false;
-
         when(folderRepository.isExist(folderId)).thenReturn(false);
 
         assertThrows(FolderNotFoundException.class, () -> {
@@ -83,24 +83,47 @@ public class UploadFileTest {
         MockMultipartFile validFile = new MockMultipartFile(
                 "file", "image.jpg", "image/jpeg", new byte[10]);
 
+        String userId = "xxx-xx1";
+        String folderId = "xxx-xx2";
+        when(folderRepository.isExist(folderId)).thenReturn(true);
+        when(folderRepository.isOwnedById(folderId, userId)).thenReturn(false);
+
+        assertThrows(AccessFolderUnauthorizedException.class, () -> {
+            this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
+        });
+
     }
 
     @ParameterizedTest
     @MethodSource("provideInvalidFile")
     void shouldThrowAnIllegalArgumentExceptionWhithInvalidFileSizeAndType(List<MultipartFile> files, String userId,
             String folderId) throws IOException {
-        when(folderRepository.isExist(folderId)).thenReturn(true);
+        if (folderId != null) {
+            when(folderRepository.isExist(folderId)).thenReturn(true);
+            when(folderRepository.isOwnedById(folderId, userId)).thenReturn(true);
+        }
         assertThrows(IllegalArgumentException.class, () -> {
             this.uploadFileUseCase.execute(files, userId, folderId);
         });
+
+        if (folderId != null) {
+            verify(folderRepository, times(1)).isExist(folderId);
+            verify(folderRepository, times(1)).isOwnedById(folderId, userId);
+        } else {
+            verify(folderRepository, never()).isExist(any());
+            verify(folderRepository, never()).isOwnedById(any(), any());
+        }
     }
 
     private static List<Arguments> provideInvalidFile() {
         return List.of(
-                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "invalid", new byte[validSize])),
+                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "invalid", new byte[VALID_SIZE])),
                         "xxx-xxx", null),
-                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "text/plain", new byte[invalidSize])),
-                        "xxxx-xxx", null));
+                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "text/plain", new byte[INVALID_SIZE])),
+                        "xxxx-xxx", null),
+                Arguments.of(List.of(new MockMultipartFile("test", "test.txt", "text/plain", new byte[INVALID_SIZE])),
+                        "xxxx-xxx", "xxx"));
+
     }
 
     @Test
@@ -129,6 +152,8 @@ public class UploadFileTest {
         String expectedPath = "/uploads/user123/123/image.jpg";
 
         when(folderRepository.isExist("123")).thenReturn(true);
+
+        when(folderRepository.isOwnedById("123", "user123")).thenReturn(true);
 
         when(storageService.writeFile(any(MultipartFile.class), any(String.class), any(String.class)))
                 .thenReturn(expectedPath);
