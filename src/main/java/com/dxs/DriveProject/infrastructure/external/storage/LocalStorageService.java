@@ -5,8 +5,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+@Service
 public class LocalStorageService implements IStorageService {
 
     @Override
@@ -34,7 +36,8 @@ public class LocalStorageService implements IStorageService {
             Files.copy(inputStream, pathFile, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        return pathFile.toAbsolutePath().toString();
+        return "uploads/" + (folderId != null ? folderId + "/" : "") + userId + "/" + file.getOriginalFilename();
+
     }
 
 }

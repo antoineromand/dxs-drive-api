@@ -6,6 +6,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
@@ -17,6 +18,7 @@ import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
 
+@Service
 public class UploadFileUseCase {
     private final IStorageService storageService;
     private final ICustomMongoFileRepository fileRepository;

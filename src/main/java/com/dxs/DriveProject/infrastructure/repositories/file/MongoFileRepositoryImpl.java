@@ -18,7 +18,7 @@ public class MongoFileRepositoryImpl implements ICustomMongoFileRepository {
 
     @Override
     public ArrayList<MongoFileEntity> insertMany(ArrayList<MongoFileEntity> files) {
-        return mongoTemplate.insert(files);
+        return new ArrayList<>(mongoTemplate.insert(files, MongoFileEntity.class));
     }
 
 }
