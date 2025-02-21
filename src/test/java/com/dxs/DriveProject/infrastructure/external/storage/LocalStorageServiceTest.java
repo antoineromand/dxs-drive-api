@@ -43,7 +43,7 @@ public class LocalStorageServiceTest {
                     .thenReturn(0L);
             String result = localStorageService.writeFile(file, userId, folderId);
 
-            assertEquals(expectedPath.toAbsolutePath().toString(), result);
+            assertEquals(expectedPath.toString(), result);
         }
     }
 
@@ -62,7 +62,7 @@ public class LocalStorageServiceTest {
                     .thenReturn(0L);
             String result = localStorageService.writeFile(file, userId, null);
 
-            assertEquals(expectedPath.toAbsolutePath().toString(), result);
+            assertEquals(expectedPath.toString(), result);
         }
     }
 
