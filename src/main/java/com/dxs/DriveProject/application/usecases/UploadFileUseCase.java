@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,12 +29,13 @@ public class UploadFileUseCase {
         this.folderRepository = folderRepository;
     }
 
-    public void execute(List<MultipartFile> files, String userId, String folderId) throws IOException {
+    public ArrayList<File> execute(List<MultipartFile> files, String userId, String folderId)
+            throws IOException {
         if (userId == null || files == null || files.isEmpty()) {
             throw new IllegalArgumentException("Invalid parameters");
         }
         long maxSizeFile = 50L * 1024 * 1024;
-        // Si folderId est précisé, vérifier si le fichier existe.
+
         if (folderId != null && !folderRepository.isExist(folderId)) {
             throw new FolderNotFoundException(folderId);
         }
@@ -56,7 +58,20 @@ public class UploadFileUseCase {
 
             filesToInsert.add(fileToDB);
 
+            // Insérer chaque fichier dans la db avec la méthode insertMany qui va insérer
+            // plusieurs enités et retourner la liste des fichiers.
+
         }
+
+        if (!filesToInsert.isEmpty()) {
+            ArrayList<MongoFileEntity> insertedFiles = this.fileRepository.insertMany(filesToInsert);
+            ArrayList<File> result = insertedFiles.stream().map(MongoFileEntity::toDomain)
+                    .collect(Collectors.toCollection(ArrayList::new));
+            return result;
+        }
+
+        return null;
+
     }
 
 }

@@ -1,11 +1,14 @@
 package com.dxs.DriveProject.application.usecases;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -204,7 +207,132 @@ public class UploadFileTest {
             assertNull(capturedFile.getFolderId());
 
         }
+    }
 
+    @Test
+    void shouldInsertFileInDB() throws IOException {
+
+        String userId = "user123";
+        MockMultipartFile validFile = new MockMultipartFile(
+                "file", "image.jpg", "image/jpeg", new byte[10]);
+
+        String expectedPath = "/uploads/user123/image.jpg";
+
+        when(storageService.writeFile(any(MultipartFile.class), any(String.class), isNull()))
+                .thenReturn(expectedPath);
+
+        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
+            MongoFileEntity mockEntity = mock(MongoFileEntity.class);
+
+            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
+                    .thenReturn(mockEntity);
+
+            uploadFileUseCase.execute(List.of(validFile), userId, null);
+
+            ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
+            mockedStatic.verify(() -> MongoFileEntity.fromDomain(fileCaptor.capture()), times(1));
+
+            File capturedFile = fileCaptor.getValue();
+
+            assertEquals(userId, capturedFile.getOwnerId());
+            assertEquals("image.jpg", capturedFile.getFilename());
+            assertEquals(expectedPath, capturedFile.getPath());
+            assertNull(capturedFile.getFolderId());
+
+        }
+
+    }
+
+    @Test
+    void shouldInsertManyFilesWhenAllFilesAreValid() throws IOException {
+        // Arrange: Prépare des fichiers valides
+        String userId = "user123";
+        MockMultipartFile file1 = new MockMultipartFile("file", "image1.jpg", "image/jpeg", new byte[10]);
+        MockMultipartFile file2 = new MockMultipartFile("file", "image2.jpg", "image/jpeg", new byte[10]);
+
+        List<MultipartFile> files = List.of(file1, file2);
+        String expectedPath1 = "/uploads/user123/image1.jpg";
+        String expectedPath2 = "/uploads/user123/image2.jpg";
+
+        // Simule l'écriture des fichiers sur le storage
+        when(storageService.writeFile(eq(file1), eq(userId), isNull())).thenReturn(expectedPath1);
+        when(storageService.writeFile(eq(file2), eq(userId), isNull())).thenReturn(expectedPath2);
+
+        // Mocke MongoFileEntity.fromDomain()
+        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
+            MongoFileEntity mongoFile1 = mock(MongoFileEntity.class);
+            MongoFileEntity mongoFile2 = mock(MongoFileEntity.class);
+
+            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
+                    .thenReturn(mongoFile1, mongoFile2);
+
+            uploadFileUseCase.execute(files, userId, null);
+
+            ArgumentCaptor<ArrayList<MongoFileEntity>> listCaptor = ArgumentCaptor.forClass(ArrayList.class);
+            verify(fileRepository, times(1)).insertMany(listCaptor.capture());
+
+            ArrayList<MongoFileEntity> capturedList = listCaptor.getValue();
+
+            assertEquals(2, capturedList.size());
+            assertTrue(capturedList.contains(mongoFile1));
+            assertTrue(capturedList.contains(mongoFile2));
+        }
+    }
+
+    @Test
+    void shouldNotInsertFilesWhenNoValidFiles() throws IOException {
+        String userId = "user123";
+        MockMultipartFile invalidFile = new MockMultipartFile("file", "document.pdf", "application/pdf", new byte[10]);
+
+        List<MultipartFile> files = List.of(invalidFile);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            uploadFileUseCase.execute(files, userId, null);
+        });
+
+        verify(fileRepository, never()).insertMany(any());
+    }
+
+    @Test
+    void shouldReturnFilesWhenInsertManyIsSuccessful() throws IOException {
+        String userId = "user123";
+        MockMultipartFile file1 = new MockMultipartFile("file", "image1.jpg", "image/jpeg", new byte[10]);
+        MockMultipartFile file2 = new MockMultipartFile("file", "image2.jpg", "image/jpeg", new byte[10]);
+
+        List<MultipartFile> files = List.of(file1, file2);
+        String expectedPath1 = "/uploads/user123/image1.jpg";
+        String expectedPath2 = "/uploads/user123/image2.jpg";
+
+        when(storageService.writeFile(eq(file1), eq(userId), isNull())).thenReturn(expectedPath1);
+        when(storageService.writeFile(eq(file2), eq(userId), isNull())).thenReturn(expectedPath2);
+
+        MongoFileEntity mongoFile1 = mock(MongoFileEntity.class);
+        MongoFileEntity mongoFile2 = mock(MongoFileEntity.class);
+        when(mongoFile1.toDomain()).thenReturn(new File(null, userId, null, "image1.jpg", expectedPath1, false,
+                file1.getSize(), file1.getContentType(), false, new Date()));
+        when(mongoFile2.toDomain()).thenReturn(new File(null, userId, null, "image2.jpg", expectedPath2, false,
+                file2.getSize(), file2.getContentType(), false, new Date()));
+
+        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
+            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
+                    .thenReturn(mongoFile1, mongoFile2);
+
+            ArrayList<MongoFileEntity> insertedEntities = new ArrayList<>();
+            insertedEntities.add(mongoFile1);
+            insertedEntities.add(mongoFile2);
+            when(fileRepository.insertMany(any())).thenReturn(insertedEntities);
+
+            ArrayList<File> returnedFiles = uploadFileUseCase.execute(files, userId, null);
+
+            verify(mongoFile1, times(1)).toDomain();
+            verify(mongoFile2, times(1)).toDomain();
+
+            assertEquals(2, returnedFiles.size());
+            assertEquals("image1.jpg", returnedFiles.get(0).getFilename());
+            assertEquals(expectedPath1, returnedFiles.get(0).getPath());
+            assertEquals("image2.jpg", returnedFiles.get(1).getFilename());
+            assertEquals(expectedPath2, returnedFiles.get(1).getPath());
+        }
     }
 
 }
