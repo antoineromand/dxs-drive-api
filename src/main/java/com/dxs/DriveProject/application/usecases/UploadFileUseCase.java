@@ -31,47 +31,75 @@ public class UploadFileUseCase {
 
     public ArrayList<File> execute(List<MultipartFile> files, String userId, String folderId)
             throws IOException {
-        if (userId == null || files == null || files.isEmpty()) {
-            throw new IllegalArgumentException("Invalid parameters");
-        }
-        long maxSizeFile = 50L * 1024 * 1024;
-
-        if (folderId != null && !folderRepository.isExist(folderId)) {
-            throw new FolderNotFoundException(folderId);
-        }
-        if (folderId != null && !folderRepository.isOwnedById(folderId, userId)) {
-            throw new AccessFolderUnauthorizedException(folderId, userId);
+        this.checkIfInputsAreValid(files, userId);
+        if (folderId != null) {
+            this.checkIfFolderExistsWhenFolderIdIsSpecified(userId, folderId);
         }
 
-        ArrayList<MongoFileEntity> filesToInsert = new ArrayList<>();
-
-        for (MultipartFile file : files) {
-            if (!FileType.isTypeValide(file.getContentType()) || file.getSize() < 0 || file.getSize() > maxSizeFile) {
-                throw new IllegalArgumentException("Invalid file");
-            }
-            String path = storageService.writeFile(file, userId, folderId);
-
-            File fileToDomain = new File(null, userId, folderId, file.getOriginalFilename(), path, false,
-                    file.getSize(), file.getContentType(), false, new Date());
-
-            MongoFileEntity fileToDB = MongoFileEntity.fromDomain(fileToDomain);
-
-            filesToInsert.add(fileToDB);
-
-            // Insérer chaque fichier dans la db avec la méthode insertMany qui va insérer
-            // plusieurs enités et retourner la liste des fichiers.
-
-        }
+        ArrayList<MongoFileEntity> filesToInsert = files.stream()
+                .peek(this::checkIfFileIsValid)
+                .map(file -> writeFileAndConvert(file, userId, folderId)) // Méthode séparée pour gérer IOException
+                .collect(Collectors.toCollection(ArrayList::new));
 
         if (!filesToInsert.isEmpty()) {
             ArrayList<MongoFileEntity> insertedFiles = this.fileRepository.insertMany(filesToInsert);
-            ArrayList<File> result = insertedFiles.stream().map(MongoFileEntity::toDomain)
-                    .collect(Collectors.toCollection(ArrayList::new));
-            return result;
+            ArrayList<File> returnedFiles = this.convertDBFileToDomainFile(insertedFiles);
+            return returnedFiles;
         }
 
-        return null;
+        return new ArrayList<>();
 
+    }
+
+    private void checkIfInputsAreValid(List<MultipartFile> files, String userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User ID parameter is missing");
+
+        }
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("Files parameter is null or empty");
+        }
+    }
+
+    private void checkIfFolderExistsWhenFolderIdIsSpecified(String userId, String folderId) {
+        if (!folderRepository.isExist(folderId)) {
+            throw new FolderNotFoundException(folderId);
+        }
+        if (!folderRepository.isOwnedById(folderId, userId)) {
+            throw new AccessFolderUnauthorizedException(folderId, userId);
+        }
+    }
+
+    private MongoFileEntity writeFileAndConvert(MultipartFile file, String userId, String folderId) {
+        try {
+            String path = storageService.writeFile(file, userId, folderId);
+            return MongoFileEntity.fromDomain(this.convertToFile(userId, folderId, path, file));
+        } catch (IOException e) {
+            throw new RuntimeException("File writing failed for " + file.getOriginalFilename(), e);
+        }
+    }
+
+    private void checkIfFileIsValid(MultipartFile file) {
+        long maxSizeFile = 50L * 1024 * 1024;
+        if (!FileType.isTypeValide(file.getContentType())) {
+            throw new IllegalArgumentException("Invalid file: format is not supported");
+        }
+        if (file.getSize() <= 0) {
+            throw new IllegalArgumentException("Invalid file: size must not be equal to 0 or less");
+        }
+        if (file.getSize() > maxSizeFile) {
+            throw new IllegalArgumentException("Invalid file: size must not exceed 50 mo");
+        }
+    }
+
+    private File convertToFile(String userId, String folderId, String path, MultipartFile file) {
+        return new File(null, userId, folderId, file.getOriginalFilename(), path, false,
+                file.getSize(), file.getContentType(), false, new Date());
+    }
+
+    private ArrayList<File> convertDBFileToDomainFile(ArrayList<MongoFileEntity> insertedFiles) {
+        return insertedFiles.stream().map(MongoFileEntity::toDomain)
+                .collect(Collectors.toCollection(ArrayList::new));
     }
 
 }
