@@ -1,15 +1,21 @@
 package com.dxs.DriveProject.infrastructure.external.storage;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 
+import com.dxs.DriveProject.infrastructure.external.storage.files.FilesWrapper;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class LocalStorageService implements IStorageService {
+
+    private FilesWrapper filesWrapper;
+
+    public LocalStorageService(FilesWrapper filesWrapper) {
+        this.filesWrapper = filesWrapper;
+    }
 
     @Override
     public String writeFile(MultipartFile file, String userId, String folderId) throws IOException {
@@ -38,6 +44,34 @@ public class LocalStorageService implements IStorageService {
 
         return "uploads/" + (folderId != null ? folderId + "/" : "") + userId + "/" + file.getOriginalFilename();
 
+    }
+
+    @Override
+    public String writeFolder(String userId, String folderId, String parentPath) throws IOException {
+        if (userId == null || userId.isEmpty()) {
+            throw new IllegalArgumentException("User not found !");
+        }
+        if (folderId == null || folderId.isEmpty()) {
+            throw new IllegalArgumentException("Folder not found !");
+        }
+
+        Path folderPath;
+
+        if (parentPath != null && !parentPath.isEmpty()) {
+            Path _parentPath = Path.of(parentPath);
+            if (!filesWrapper.exists(_parentPath)) {
+                throw new NoSuchFileException("Parent folder could not be founded !");
+            }
+            folderPath = Path.of(parentPath, folderId);
+        } else {
+            folderPath = Path.of("uploads", userId, folderId);
+        }
+
+        if (filesWrapper.exists(folderPath)) {
+            throw new FileAlreadyExistsException("Folder already exists !");
+        }
+
+        return null;
     }
 
 }

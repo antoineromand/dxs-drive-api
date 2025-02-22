@@ -2,12 +2,12 @@ package com.dxs.DriveProject.infrastructure.external.storage;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+
+import com.dxs.DriveProject.infrastructure.external.storage.files.FilesWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,10 +20,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class LocalStorageServiceTest {
     private MultipartFile file;
     private LocalStorageService localStorageService;
+    private FilesWrapper filesWrapper;
+
 
     @BeforeEach
     void setUp() {
-        localStorageService = new LocalStorageService();
+        filesWrapper = Mockito.mock(FilesWrapper.class);
+        localStorageService = new LocalStorageService(filesWrapper);
         file = Mockito.mock(MultipartFile.class);
     }
 
@@ -99,4 +102,52 @@ public class LocalStorageServiceTest {
 
         assertEquals("User not provided !", exception.getMessage());
     }
+
+    @Test
+    void testWriteFolder_ShouldThrowExceptionIfUserIdIsNull() {
+        String userId = null;
+        String folderId = "xxx-xx1";
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            localStorageService.writeFolder(userId, folderId, null);
+        });
+    }
+
+    @Test
+    void testWriteFolder_ShouldThrowExceptionIfFolderIdIsNull() {
+        String userId = "xxx-xx1";
+        String folderId = null;
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            localStorageService.writeFolder(userId, folderId, null);
+        });
+    }
+
+    @Test
+    void testWriterFolder_ShouldThrowExceptionIfParentNotExist() {
+        String userId = "xxx-xx1";
+        String folderId = "xxx-xx1";
+        String parentPath = "xxx/xxx/xxx";
+        when(filesWrapper.exists(Path.of(parentPath))).thenReturn(false);
+
+        assertThrows(NoSuchFileException.class, () -> {
+            localStorageService.writeFolder(userId, folderId, parentPath);
+        });
+    }
+
+    @Test
+    void testWriterFolder_ShouldThrowExceptionIfFolderAlreadyExists() {
+        String userId = "xxx-xx1";
+        String folderId = "xx3";
+        String parentPath = "xxx/xxx/xx2";
+        when(filesWrapper.exists(Path.of(parentPath))).thenReturn( true);
+        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn( true);
+        assertThrows(FileAlreadyExistsException.class, () -> {
+            localStorageService.writeFolder(userId, folderId, parentPath);
+        });
+    }
+
+
+
+
 }
