@@ -1,5 +1,3 @@
-version: '3.1'
-
 services:
   mongo:
     image: mongo
@@ -11,6 +9,7 @@ services:
       - ${MONGO_PORT}:${MONGO_PORT}
     volumes:
       - mongo_data:/data/db
+      - ./.init.js:/docker-entrypoint-initdb.d/init.js:ro
 
   mongo-express:
     image: mongo-express
@@ -20,8 +19,10 @@ services:
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
-      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}/
-      ME_CONFIG_BASICAUTH: "false"
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@${MONGO_HOST}:${MONGO_PORT}
+      ME_CONFIG_BASICAUTH: "true"
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
     depends_on:
       - mongo
 
@@ -36,6 +37,10 @@ services:
       SPRING_DATA_MONGODB_URI: ${SPRING_MONGO_URI}
       SPRING_APPLICATION_NAME: ${SPRING_APP_NAME}
       SERVER_PORT: ${SPRING_APP_PORT}
-
+      SPRING_SECURITY_PASS: ${SPRING_SECURITY_PASS}
+      SPRING_SECURITY_USER: ${SPRING_SECURITY_USER}
+    volumes:
+      - ./uploads:/app/uploads
 volumes:
   mongo_data:
+  uploads:
