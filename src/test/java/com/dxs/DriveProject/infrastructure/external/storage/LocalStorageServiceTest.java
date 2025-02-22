@@ -4,12 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
 import com.dxs.DriveProject.infrastructure.external.storage.files.FilesWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -145,6 +144,33 @@ public class LocalStorageServiceTest {
         assertThrows(FileAlreadyExistsException.class, () -> {
             localStorageService.writeFolder(userId, folderId, parentPath);
         });
+    }
+
+
+    @Test
+    void testWriteFolder_ShouldReturnPathWithParent() throws IOException {
+        String userId = "xxx-xx1";
+        String folderId = "xx3";
+        String parentPath = "xxx/xxx/xx2";
+        Path expectedPath = Path.of(parentPath, folderId);
+        when(filesWrapper.exists(Path.of(parentPath))).thenReturn( true);
+        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn( false);
+        when(filesWrapper.createDirectories(Path.of(parentPath, folderId))).thenReturn(expectedPath);
+        String path = localStorageService.writeFolder(userId, folderId, parentPath);
+        assertEquals(expectedPath.toString(), path);
+        assertFalse(path.isEmpty());
+    }
+
+    @Test
+    void testWriteFolder_ShouldReturnPathWithoutParent() throws IOException {
+        String userId = "xxx-xx1";
+        String folderId = "xx3";
+        Path expectedPath = Path.of("uploads", userId, folderId);
+        when(filesWrapper.exists(Path.of("uploads", userId, folderId))).thenReturn( false);
+        when(filesWrapper.createDirectories(Path.of("uploads", userId, folderId))).thenReturn(expectedPath);
+        String path = localStorageService.writeFolder(userId, folderId, null);
+        assertEquals(expectedPath.toString(), path);
+        assertFalse(path.isEmpty());
     }
 
 

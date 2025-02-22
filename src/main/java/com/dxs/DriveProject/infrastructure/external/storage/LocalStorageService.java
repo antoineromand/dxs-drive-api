@@ -71,7 +71,9 @@ public class LocalStorageService implements IStorageService {
             throw new FileAlreadyExistsException("Folder already exists !");
         }
 
-        return null;
+        Path result = filesWrapper.createDirectories(folderPath);
+
+        return result.toString();
     }
 
 }
