@@ -7,7 +7,7 @@ plugins {
 }
 
 group = 'com.dxs'
-version = '0.0.2'
+version = '0.0.3'
 
 java {
 	toolchain {
@@ -36,6 +36,8 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	implementation "me.paulschwarz:spring-dotenv:4.0.0"
 	implementation "org.springframework.boot:spring-boot-starter-security"
+	testImplementation 'org.testcontainers:mongodb:1.19.3'
+	testImplementation 'org.testcontainers:junit-jupiter'
 }
 
 tasks.named('test') {
