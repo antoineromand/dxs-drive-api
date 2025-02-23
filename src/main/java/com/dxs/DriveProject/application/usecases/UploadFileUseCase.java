@@ -45,8 +45,7 @@ public class UploadFileUseCase {
 
         if (!filesToInsert.isEmpty()) {
             ArrayList<MongoFileEntity> insertedFiles = this.fileRepository.insertMany(filesToInsert);
-            ArrayList<File> returnedFiles = this.convertDBFileToDomainFile(insertedFiles);
-            return returnedFiles;
+            return this.convertDBFileToDomainFile(insertedFiles);
         }
 
         return new ArrayList<>();
