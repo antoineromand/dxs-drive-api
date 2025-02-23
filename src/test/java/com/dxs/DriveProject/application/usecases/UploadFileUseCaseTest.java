@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dxs.DriveProject.config.AbstractMongoDBTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -39,7 +38,7 @@ import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
 
-public class UploadFileTest {
+public class UploadFileUseCaseTest {
 
     private IStorageService storageService;
     private ICustomMongoFileRepository fileRepository;
