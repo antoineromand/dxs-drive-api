@@ -7,6 +7,7 @@ import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.util.Date;
 import java.util.Optional;
 
 @Transactional
+@Service
 public class CreateFolderUseCase {
     private IStorageService storageService;
     private ICustomMongoFolderRepository folderRepository;
