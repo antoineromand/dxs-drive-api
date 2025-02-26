@@ -5,7 +5,7 @@ import java.util.Optional;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 
 public interface ICustomMongoFolderRepository {
-    MongoFolderEntity insert(MongoFolderEntity folder);
+    MongoFolderEntity save(MongoFolderEntity folder);
 
     Optional<MongoFolderEntity> findByFolderIdAndUserId(String id, String userId);
 

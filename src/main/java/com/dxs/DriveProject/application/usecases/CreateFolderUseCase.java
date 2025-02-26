@@ -5,16 +5,24 @@ import com.dxs.DriveProject.domain.exceptions.ParentFolderNotFoundException;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
+import com.mongodb.client.ClientSession;
+import com.mongodb.client.MongoClient;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.util.Date;
 import java.util.Optional;
 
+@Transactional
 public class CreateFolderUseCase {
     private IStorageService storageService;
     private ICustomMongoFolderRepository folderRepository;
+    private final MongoClient mongoClient;
 
-    public CreateFolderUseCase(IStorageService iStorageService, ICustomMongoFolderRepository iCustomMongoFolderRepository) {
+    public CreateFolderUseCase(IStorageService iStorageService, ICustomMongoFolderRepository iCustomMongoFolderRepository, MongoClient client) {
         this.storageService = iStorageService;
         this.folderRepository = iCustomMongoFolderRepository;
+        this.mongoClient = client;
     }
     public Folder execute(String userId, String foldername, String parentId) {
         if (userId == null || userId.isEmpty()) {
@@ -24,8 +32,7 @@ public class CreateFolderUseCase {
             throw new IllegalArgumentException("A foldername must be provided !");
         }
 
-        String parentPath;
-
+        String parentPath = null;
         if (parentId != null && !parentId.isEmpty()) {
             Optional<MongoFolderEntity> parentFolder = this.folderRepository.findByFolderIdAndUserId(parentId, userId);
             if (parentFolder.isEmpty()) {
@@ -33,7 +40,30 @@ public class CreateFolderUseCase {
             }
             parentPath = parentFolder.get().toDomain().getPath();
         }
+        ClientSession session = mongoClient.startSession();
+        try {
+            session.startTransaction();
 
-        return null;
+            Folder newFolder = new Folder(null, userId, foldername, null, parentId, false, false, new Date());
+            MongoFolderEntity mongoFolderPayload = MongoFolderEntity.fromDomain(newFolder);
+            MongoFolderEntity insertedFolder = this.folderRepository.save(mongoFolderPayload);
+
+            Folder insertedFolderDomain = insertedFolder.toDomain();
+            String folderId = insertedFolderDomain.getId();
+
+            String folderPath = this.storageService.writeFolder(userId, folderId, parentPath);
+            insertedFolderDomain.setPath(folderPath);
+
+            MongoFolderEntity updatedFolderMongo = this.folderRepository.save(MongoFolderEntity.fromDomain(insertedFolderDomain));
+            session.commitTransaction();
+
+            return updatedFolderMongo.toDomain();
+        } catch (IOException e) {
+            session.abortTransaction();
+            throw new RuntimeException("Error while writing folder: ", e);
+        } finally {
+            session.close();
+        }
     }
+
 }

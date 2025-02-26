@@ -28,6 +28,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
@@ -38,6 +39,7 @@ import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
 
+@Transactional
 public class UploadFileUseCaseTest {
 
     private IStorageService storageService;

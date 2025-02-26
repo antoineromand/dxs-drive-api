@@ -21,9 +21,6 @@ public class Folder {
         if (foldername == null || foldername.isBlank()) {
             throw new IllegalArgumentException("Foldername is required and cannot be empty");
         }
-        if (path == null || path.isBlank()) {
-            throw new IllegalArgumentException("Path is required and cannot be empty");
-        }
         this.id = id;
         this.ownerId = ownerId;
         this.foldername = foldername;
@@ -64,6 +61,10 @@ public class Folder {
 
     public String getPath() {
         return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
     }
 
     public String getParentId() {

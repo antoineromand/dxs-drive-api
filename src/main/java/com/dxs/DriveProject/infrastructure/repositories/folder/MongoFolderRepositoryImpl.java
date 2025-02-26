@@ -21,8 +21,8 @@ public class MongoFolderRepositoryImpl implements
     }
 
     @Override
-    public MongoFolderEntity insert(MongoFolderEntity file) {
-        return mongoTemplate.insert(file);
+    public MongoFolderEntity save(MongoFolderEntity file) {
+        return mongoTemplate.save(file);
     }
 
     @Override
