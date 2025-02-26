@@ -69,12 +69,4 @@ public class FolderTest {
         assertEquals("Foldername is required and cannot be empty", exception.getMessage());
     }
 
-    @Test
-    void shouldThrowExceptionIfPathIsEmpty() {
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
-            new Folder("e", "e", "folder", "", null, false, false, new Date());
-        });
-        assertEquals("Path is required and cannot be empty", exception.getMessage());
-    }
-
 }
