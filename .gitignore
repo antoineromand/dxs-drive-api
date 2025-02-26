@@ -17,6 +17,8 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 .env
+keyfile
+init.sh
 ### IntelliJ IDEA ###
 .idea
 *.iws

@@ -4,13 +4,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.dxs.DriveProject.config.AbstractMongoDBTest;
+import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -29,6 +30,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
@@ -39,7 +41,8 @@ import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
 import com.dxs.DriveProject.infrastructure.repositories.folder.ICustomMongoFolderRepository;
 
-public class UploadFileTest {
+@Transactional
+public class UploadFileUseCaseTest {
 
     private IStorageService storageService;
     private ICustomMongoFileRepository fileRepository;
@@ -161,6 +164,7 @@ public class UploadFileTest {
     void shouldWriteFileWithFolder() throws IOException {
         MockMultipartFile validFile = new MockMultipartFile(
                 "file", "image.jpg", "image/jpeg", new byte[10]);
+        String folderPath = "/uploads/user123/123";
 
         String expectedPath = "/uploads/user123/123/image.jpg";
 
@@ -168,14 +172,28 @@ public class UploadFileTest {
 
         when(folderRepository.isOwnedById("123", "user123")).thenReturn(true);
 
-        when(storageService.writeFile(any(MultipartFile.class), any(String.class), any(String.class)))
+        MongoFolderEntity expectedFolder = MongoFolderEntity.builder()
+                .id("123")
+                .ownerId("user123")
+                .path("/uploads/user123/123")
+                .foldername("test")
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+        when(folderRepository.findByFolderIdAndUserId("123", "user123")).thenReturn(Optional.of(expectedFolder));
+
+        when(storageService.writeFile(validFile, "user123", folderPath))
                 .thenReturn(expectedPath);
 
         uploadFileUseCase.execute(List.of(validFile), "user123", "123");
 
-        verify(storageService, times(1)).writeFile(validFile, "user123", "123");
+        verify(storageService, times(1))
+                .writeFile(validFile, "user123", folderPath);
 
-        assertEquals(expectedPath, storageService.writeFile(validFile, "user123", "123"));
+        assertEquals(expectedPath, storageService.writeFile(validFile, "user123", folderPath));
+
 
     }
 

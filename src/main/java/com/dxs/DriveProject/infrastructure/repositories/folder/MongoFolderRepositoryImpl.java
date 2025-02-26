@@ -21,13 +21,16 @@ public class MongoFolderRepositoryImpl implements
     }
 
     @Override
-    public MongoFolderEntity insert(MongoFolderEntity file) {
-        return mongoTemplate.insert(file);
+    public MongoFolderEntity save(MongoFolderEntity file) {
+        return mongoTemplate.save(file);
     }
 
     @Override
-    public Optional<MongoFolderEntity> findById(String id) {
-        return Optional.ofNullable(mongoTemplate.findById(id, MongoFolderEntity.class));
+    public Optional<MongoFolderEntity> findByFolderIdAndUserId(String id, String ownerId) {
+        Query query = new Query();
+        Criteria criteria = Criteria.where("_id").is(id).and("owner_id").is(ownerId);
+        query.addCriteria(criteria);
+        return Optional.ofNullable(mongoTemplate.findOne(query, MongoFolderEntity.class));
     }
 
     @Override

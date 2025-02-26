@@ -5,11 +5,12 @@ import java.util.Optional;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 
 public interface ICustomMongoFolderRepository {
-    MongoFolderEntity insert(MongoFolderEntity folder);
+    MongoFolderEntity save(MongoFolderEntity folder);
 
-    Optional<MongoFolderEntity> findById(String id);
+    Optional<MongoFolderEntity> findByFolderIdAndUserId(String id, String userId);
 
     boolean isExist(String folderId);
 
     boolean isOwnedById(String folderId, String userId);
+
 }
