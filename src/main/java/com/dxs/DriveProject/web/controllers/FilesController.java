@@ -16,19 +16,17 @@ import com.dxs.DriveProject.domain.File;
 
 @RestController()
 @RequestMapping("files")
-public class FileController {
+public class FilesController {
     private final UploadFileUseCase uploadFileUseCase;
 
-    public FileController(UploadFileUseCase uploadUsecase) {
+    public FilesController(UploadFileUseCase uploadUsecase) {
         this.uploadFileUseCase = uploadUsecase;
     }
 
     @PostMapping(consumes = { "multipart/form-data" }, value = "/upload")
-    public ArrayList<File> uploadFiles(@RequestParam("files") List<MultipartFile> files,
+    public ArrayList<File> uploadFiles(@RequestParam("userId") String userId, @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "folderId", required = false) String folderId) throws IOException {
-        String userId = UUID.randomUUID().toString();
-        ArrayList<File> result = uploadFileUseCase.execute(files, userId, folderId);
-        return result;
+        return uploadFileUseCase.execute(files, userId, folderId);
     }
 
 }

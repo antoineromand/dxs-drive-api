@@ -18,7 +18,7 @@ public class LocalStorageService implements IStorageService {
     }
 
     @Override
-    public String writeFile(MultipartFile file, String userId, String folderId) throws IOException {
+    public String writeFile(MultipartFile file, String userId, String folderPath) throws IOException {
         if (file == null) {
             throw new IllegalArgumentException("File not found !");
         }
@@ -26,8 +26,8 @@ public class LocalStorageService implements IStorageService {
             throw new IllegalArgumentException("User not provided !");
         }
         Path uploadPath;
-        if (folderId != null && !folderId.isEmpty()) {
-            uploadPath = Path.of("uploads", folderId, userId);
+        if (folderPath != null && !folderPath.isEmpty()) {
+            uploadPath = Path.of(folderPath);
         } else {
             uploadPath = Path.of("uploads", userId);
         }
@@ -42,7 +42,7 @@ public class LocalStorageService implements IStorageService {
             Files.copy(inputStream, pathFile, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        return "uploads/" + (folderId != null ? folderId + "/" : "") + userId + "/" + file.getOriginalFilename();
+        return pathFile.toString();
 
     }
 

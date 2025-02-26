@@ -4,8 +4,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.dxs.DriveProject.domain.Folder;
+import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -33,14 +36,24 @@ public class UploadFileUseCase {
 
     public ArrayList<File> execute(List<MultipartFile> files, String userId, String folderId)
             throws IOException {
+        String parentPath;
         this.checkIfInputsAreValid(files, userId);
         if (folderId != null) {
             this.checkIfFolderExistsWhenFolderIdIsSpecified(userId, folderId);
+            Optional<MongoFolderEntity> folderMongoEntity = this.folderRepository.findByFolderIdAndUserId(folderId, userId);
+            if (folderMongoEntity.isPresent()) {
+                Folder folder = folderMongoEntity.get().toDomain();
+                parentPath = folder.getPath();
+            } else {
+                parentPath = null;
+            }
+        } else {
+            parentPath = null;
         }
 
         ArrayList<MongoFileEntity> filesToInsert = files.stream()
                 .peek(this::checkIfFileIsValid)
-                .map(file -> writeFileAndConvert(file, userId, folderId)) // Méthode séparée pour gérer IOException
+                .map(file -> writeFileAndConvert(file, userId, parentPath, folderId))
                 .collect(Collectors.toCollection(ArrayList::new));
 
         if (!filesToInsert.isEmpty()) {
@@ -71,9 +84,9 @@ public class UploadFileUseCase {
         }
     }
 
-    private MongoFileEntity writeFileAndConvert(MultipartFile file, String userId, String folderId) {
+    private MongoFileEntity writeFileAndConvert(MultipartFile file, String userId, String folderPath, String folderId) {
         try {
-            String path = storageService.writeFile(file, userId, folderId);
+            String path = storageService.writeFile(file, userId, folderPath);
             return MongoFileEntity.fromDomain(this.convertToFile(userId, folderId, path, file));
         } catch (IOException e) {
             throw new RuntimeException("File writing failed for " + file.getOriginalFilename(), e);

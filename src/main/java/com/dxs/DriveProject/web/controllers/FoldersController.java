@@ -14,9 +14,9 @@ import java.io.IOException;
 
 @RestController()
 @RequestMapping("folders")
-public class FolderController {
+public class FoldersController {
     private final CreateFolderUseCase createFolderUseCase;
-    public FolderController(CreateFolderUseCase createFolderUseCase) {
+    public FoldersController(CreateFolderUseCase createFolderUseCase) {
         this.createFolderUseCase = createFolderUseCase;
     }
 

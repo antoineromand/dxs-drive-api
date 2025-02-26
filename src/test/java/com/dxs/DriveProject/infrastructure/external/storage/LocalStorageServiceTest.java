@@ -34,7 +34,8 @@ public class LocalStorageServiceTest {
         String userId = "user123";
         String folderId = "folder456";
         String fileName = "test.txt";
-        Path expectedPath = Path.of("uploads", folderId, userId, fileName);
+        Path parentPath = Path.of("uploads", userId, folderId);
+        Path expectedPath = Path.of(parentPath.toString(), fileName);
 
         when(file.getOriginalFilename()).thenReturn(fileName);
         when(file.getInputStream()).thenReturn(getClass().getClassLoader().getResourceAsStream("test-file.txt"));
@@ -43,7 +44,7 @@ public class LocalStorageServiceTest {
             mockedFiles.when(() -> Files.createDirectories(any())).then(invocation -> null);
             mockedFiles.when(() -> Files.copy(any(InputStream.class), any(Path.class), any(StandardCopyOption.class)))
                     .thenReturn(0L);
-            String result = localStorageService.writeFile(file, userId, folderId);
+            String result = localStorageService.writeFile(file, userId, parentPath.toString());
 
             assertEquals(expectedPath.toString(), result);
         }
