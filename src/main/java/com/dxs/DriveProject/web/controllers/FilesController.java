@@ -6,10 +6,13 @@ import java.util.List;
 import java.util.UUID;
 
 import com.dxs.DriveProject.application.usecases.dto.UploadResponse;
+import com.dxs.DriveProject.infrastructure.config.security.CustomAuthenticationToken;
 import com.dxs.DriveProject.web.controllers.dto.ApiSuccessResponse;
 import com.dxs.DriveProject.web.controllers.dto.FileDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,8 +32,10 @@ public class FilesController {
     }
 
     @PostMapping(consumes = { "multipart/form-data" }, value = "/upload")
-    public ResponseEntity<?> uploadFiles(@RequestParam(value = "files", required = false) List<MultipartFile> files, @RequestParam(value= "userId", required = false) String userId,
+    public ResponseEntity<?> uploadFiles(@RequestParam(value = "files", required = false) List<MultipartFile> files,
                                          @RequestParam(value = "folderId", required = false) String folderId) throws IOException {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userId = authentication.getPrincipal().toString();
         UploadResponse<List<FileDTO>> result = this.uploadFileUseCase.execute(files, userId, folderId);
 
         if (result.getData().isEmpty() && !result.getErrors().isEmpty()) {
