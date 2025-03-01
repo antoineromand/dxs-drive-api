@@ -14,8 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
-import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
-import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.domain.object_values.FileType;
 import com.dxs.DriveProject.infrastructure.entities.MongoFileEntity;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
