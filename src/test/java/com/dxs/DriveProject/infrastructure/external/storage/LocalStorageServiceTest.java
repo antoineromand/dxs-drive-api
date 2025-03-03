@@ -149,14 +149,19 @@ public class LocalStorageServiceTest {
     void testWriteFolder_ShouldReturnPathWithParent() throws IOException {
         String userId = "xxx-xx1";
         String folderId = "xx3";
-        String parentPath = "xxx/xxx/xx2";
-        Path expectedPath = Path.of(parentPath, folderId);
-        when(filesWrapper.exists(Path.of(parentPath))).thenReturn( true);
-        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn( false);
-        when(filesWrapper.createDirectories(Path.of(parentPath, folderId))).thenReturn(expectedPath);
-        String path = localStorageService.writeFolder(userId, folderId, parentPath);
-        assertEquals(expectedPath.toString(), path);
-        assertFalse(path.isEmpty());
+        String parentPath = "uploads/xxx/xxx/xx2";
+
+        String expectedRelativePath = parentPath + "/" + folderId;
+
+        when(filesWrapper.exists(Path.of(parentPath))).thenReturn(true);
+        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn(false);
+        when(filesWrapper.createDirectories(Path.of(parentPath, folderId)))
+                .thenReturn(Path.of(expectedRelativePath));
+
+        String actualPath = localStorageService.writeFolder(userId, folderId, parentPath);
+
+        assertEquals(expectedRelativePath, actualPath);
+        assertFalse(actualPath.isEmpty());
     }
 
     @Test

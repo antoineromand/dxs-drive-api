@@ -60,25 +60,26 @@ public class LocalStorageService implements IStorageService {
             throw new IllegalArgumentException("Folder not found !");
         }
 
-        Path folderPath;
+        Path baseUploadPath = null;
 
         if (parentPath != null && !parentPath.isEmpty()) {
-            Path _parentPath = Path.of(parentPath);
-            if (!filesWrapper.exists(_parentPath)) {
-                throw new NoSuchFileException("Parent folder could not be founded !");
+            baseUploadPath = Path.of(parentPath);
+            if (!filesWrapper.exists(baseUploadPath)) {
+                throw new NoSuchFileException("Parent folder could not be found !");
             }
-            folderPath = Path.of(parentPath, folderId);
+            baseUploadPath = baseUploadPath.resolve(folderId);
         } else {
-            folderPath = Path.of("uploads", userId, folderId);
+            baseUploadPath = Path.of("uploads").resolve(userId).resolve(folderId);
         }
 
-        if (filesWrapper.exists(folderPath)) {
+        if (filesWrapper.exists(baseUploadPath)) {
             throw new FileAlreadyExistsException("Folder already exists !");
         }
 
-        Path result = filesWrapper.createDirectories(folderPath);
+        filesWrapper.createDirectories(baseUploadPath);
 
-        return result.toString();
+        return baseUploadPath.toString();
     }
+
 
 }
