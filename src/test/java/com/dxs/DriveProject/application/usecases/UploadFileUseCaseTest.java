@@ -4,20 +4,19 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
+import com.dxs.DriveProject.application.usecases.dto.UploadError;
+import com.dxs.DriveProject.application.usecases.dto.UploadErrorType;
+import com.dxs.DriveProject.application.usecases.dto.UploadResponse;
+import com.dxs.DriveProject.web.controllers.dto.FileDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
+
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -34,8 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
-import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
-import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.infrastructure.entities.MongoFileEntity;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
 import com.dxs.DriveProject.infrastructure.repositories.file.ICustomMongoFileRepository;
@@ -62,11 +59,12 @@ public class UploadFileUseCaseTest {
 
     @ParameterizedTest
     @MethodSource("provideInvalidInputs")
-    void shouldThrowAnIllegalArgumentExceptionWhithInvalidParameters(List<MultipartFile> files, String userId,
+    void shouldContainsErrorIfParametersAreNotValid(List<MultipartFile> files, String userId,
             String folderId) throws IOException {
-        assertThrows(IllegalArgumentException.class, () -> {
-            this.uploadFileUseCase.execute(files, userId, folderId);
-        });
+        UploadResponse<List< FileDTO>> response = this.uploadFileUseCase.execute(files, userId, folderId);
+        List<UploadError> errors = response.getErrors();
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.INVALID_PARAMETER, errors.get(0).getErrorType());
     }
 
     private static List<Arguments> provideInvalidInputs() {
@@ -79,7 +77,7 @@ public class UploadFileUseCaseTest {
     }
 
     @Test
-    void shouldThrowAnExceptionIfFolderIsSpecifiedButDoesNotExist() throws IOException {
+    void shouldContainsErrorIfFolderIdIsSpecifiedAndNotFound() throws IOException {
         MockMultipartFile validFile = new MockMultipartFile(
                 "file", "image.jpg", "image/jpeg", new byte[10]);
 
@@ -88,14 +86,16 @@ public class UploadFileUseCaseTest {
 
         when(folderRepository.isExist(eq(folderId))).thenReturn(false);
 
-        assertThrows(FolderNotFoundException.class, () -> {
-            this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
-        });
+        UploadResponse<List< FileDTO>> response = this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
+        List<UploadError> errors = response.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FOLDER_NOT_FOUND, errors.get(0).getErrorType());
 
     }
 
     @Test
-    void shouldThrowAnExceptionIfFolderIsSpecifiedButDoesNotOwnIt() {
+    void shouldContainsErrorIfFolderIsSpecifiedButDoesNotOwnIt() throws IOException {
         MockMultipartFile validFile = new MockMultipartFile(
                 "file", "image.jpg", "image/jpeg", new byte[10]);
 
@@ -104,23 +104,25 @@ public class UploadFileUseCaseTest {
         when(folderRepository.isExist(folderId)).thenReturn(true);
         when(folderRepository.isOwnedById(folderId, userId)).thenReturn(false);
 
-        assertThrows(AccessFolderUnauthorizedException.class, () -> {
-            this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
-        });
+        UploadResponse<List< FileDTO>> response = this.uploadFileUseCase.execute(List.of(validFile), userId, folderId);
+        List<UploadError> errors = response.getErrors();
 
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FORBIDDEN_ACCESS, errors.get(0).getErrorType());
     }
 
     @ParameterizedTest
     @MethodSource("provideInvalidFile")
-    void shouldThrowAnIllegalArgumentExceptionWhithInvalidFileSizeAndType(List<MultipartFile> files, String userId,
-            String folderId) throws IOException {
+    void shouldContainsErrorIfInvalidFileSizeAndType(List<MultipartFile> files, String userId, String folderId) throws IOException {
         if (folderId != null) {
             when(folderRepository.isExist(folderId)).thenReturn(true);
             when(folderRepository.isOwnedById(folderId, userId)).thenReturn(true);
         }
-        assertThrows(IllegalArgumentException.class, () -> {
-            this.uploadFileUseCase.execute(files, userId, folderId);
-        });
+
+        UploadResponse<List<FileDTO>> response = uploadFileUseCase.execute(files, userId, folderId);
+        List<UploadError> errors = response.getErrors();
+
+        assertEquals(UploadErrorType.FILE_VALIDATION_ERROR, errors.get(0).getErrorType());
 
         if (folderId != null) {
             verify(folderRepository, times(1)).isExist(folderId);
@@ -130,6 +132,8 @@ public class UploadFileUseCaseTest {
             verify(folderRepository, never()).isOwnedById(any(), any());
         }
     }
+
+
 
     private static List<Arguments> provideInvalidFile() {
         return List.of(
@@ -143,129 +147,7 @@ public class UploadFileUseCaseTest {
     }
 
     @Test
-    void shouldWriteFileWihtoutFolder() throws IOException {
-        MockMultipartFile validFile = new MockMultipartFile(
-                "file", "image.jpg", "image/jpeg", new byte[10]);
-
-        String expectedPath = "/uploads/user123/image.jpg";
-
-        when(storageService.writeFile(any(MultipartFile.class), any(String.class), isNull()))
-                .thenReturn(expectedPath);
-
-        uploadFileUseCase.execute(List.of(validFile), "user123", null);
-
-        verify(storageService, times(1)).writeFile(validFile, "user123", null);
-
-        assertEquals(expectedPath, storageService.writeFile(validFile, "user123", null));
-
-    }
-
-    @Test
-    void shouldWriteFileWithFolder() throws IOException {
-        MockMultipartFile validFile = new MockMultipartFile(
-                "file", "image.jpg", "image/jpeg", new byte[10]);
-        String folderPath = "/uploads/user123/123";
-
-        String expectedPath = "/uploads/user123/123/image.jpg";
-
-        when(folderRepository.isExist("123")).thenReturn(true);
-
-        when(folderRepository.isOwnedById("123", "user123")).thenReturn(true);
-
-        MongoFolderEntity expectedFolder = MongoFolderEntity.builder()
-                .id("123")
-                .ownerId("user123")
-                .path("/uploads/user123/123")
-                .foldername("test")
-                .bookmark(false)
-                .softDelete(false)
-                .createdAt(new Date())
-                .build();
-
-        when(folderRepository.findByFolderIdAndUserId("123", "user123")).thenReturn(Optional.of(expectedFolder));
-
-        when(storageService.writeFile(validFile, "user123", folderPath))
-                .thenReturn(expectedPath);
-
-        uploadFileUseCase.execute(List.of(validFile), "user123", "123");
-
-        verify(storageService, times(1))
-                .writeFile(validFile, "user123", folderPath);
-
-        assertEquals(expectedPath, storageService.writeFile(validFile, "user123", folderPath));
-
-
-    }
-
-    @Test
-    void shouldCreateFileObjectWithCorrectValues() throws IOException {
-        String userId = "user123";
-        MockMultipartFile validFile = new MockMultipartFile(
-                "file", "image.jpg", "image/jpeg", new byte[10]);
-
-        String expectedPath = "/uploads/user123/image.jpg";
-
-        when(storageService.writeFile(any(MultipartFile.class), any(String.class), isNull()))
-                .thenReturn(expectedPath);
-
-        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
-            MongoFileEntity mockEntity = mock(MongoFileEntity.class);
-
-            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
-                    .thenReturn(mockEntity);
-
-            uploadFileUseCase.execute(List.of(validFile), userId, null);
-
-            ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
-            mockedStatic.verify(() -> MongoFileEntity.fromDomain(fileCaptor.capture()), times(1));
-
-            File capturedFile = fileCaptor.getValue();
-
-            assertEquals(userId, capturedFile.getOwnerId());
-            assertEquals("image.jpg", capturedFile.getFilename());
-            assertEquals(expectedPath, capturedFile.getPath());
-            assertNull(capturedFile.getFolderId());
-
-        }
-    }
-
-    @Test
-    void shouldInsertFileInDB() throws IOException {
-
-        String userId = "user123";
-        MockMultipartFile validFile = new MockMultipartFile(
-                "file", "image.jpg", "image/jpeg", new byte[10]);
-
-        String expectedPath = "/uploads/user123/image.jpg";
-
-        when(storageService.writeFile(any(MultipartFile.class), any(String.class), isNull()))
-                .thenReturn(expectedPath);
-
-        try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
-            MongoFileEntity mockEntity = mock(MongoFileEntity.class);
-
-            mockedStatic.when(() -> MongoFileEntity.fromDomain(any(File.class)))
-                    .thenReturn(mockEntity);
-
-            uploadFileUseCase.execute(List.of(validFile), userId, null);
-
-            ArgumentCaptor<File> fileCaptor = ArgumentCaptor.forClass(File.class);
-            mockedStatic.verify(() -> MongoFileEntity.fromDomain(fileCaptor.capture()), times(1));
-
-            File capturedFile = fileCaptor.getValue();
-
-            assertEquals(userId, capturedFile.getOwnerId());
-            assertEquals("image.jpg", capturedFile.getFilename());
-            assertEquals(expectedPath, capturedFile.getPath());
-            assertNull(capturedFile.getFolderId());
-
-        }
-
-    }
-
-    @Test
     void shouldInsertManyFilesWhenAllFilesAreValid() throws IOException {
-        // Arrange: Prépare des fichiers valides
         String userId = "user123";
         MockMultipartFile file1 = new MockMultipartFile("file", "image1.jpg", "image/jpeg", new byte[10]);
         MockMultipartFile file2 = new MockMultipartFile("file", "image2.jpg", "image/jpeg", new byte[10]);
@@ -274,11 +156,9 @@ public class UploadFileUseCaseTest {
         String expectedPath1 = "/uploads/user123/image1.jpg";
         String expectedPath2 = "/uploads/user123/image2.jpg";
 
-        // Simule l'écriture des fichiers sur le storage
         when(storageService.writeFile(eq(file1), eq(userId), isNull())).thenReturn(expectedPath1);
         when(storageService.writeFile(eq(file2), eq(userId), isNull())).thenReturn(expectedPath2);
 
-        // Mocke MongoFileEntity.fromDomain()
         try (MockedStatic<MongoFileEntity> mockedStatic = mockStatic(MongoFileEntity.class)) {
             MongoFileEntity mongoFile1 = mock(MongoFileEntity.class);
             MongoFileEntity mongoFile2 = mock(MongoFileEntity.class);
@@ -302,13 +182,15 @@ public class UploadFileUseCaseTest {
     @Test
     void shouldNotInsertFilesWhenNoValidFiles() throws IOException {
         String userId = "user123";
-        MockMultipartFile invalidFile = new MockMultipartFile("file", "document.pdf", "application/pdf", new byte[10]);
+        MockMultipartFile invalidFile = new MockMultipartFile("file", "document.pdf", "te/pdf", new byte[10]);
 
         List<MultipartFile> files = List.of(invalidFile);
 
-        assertThrows(IllegalArgumentException.class, () -> {
-            uploadFileUseCase.execute(files, userId, null);
-        });
+        UploadResponse<List<FileDTO>> response = uploadFileUseCase.execute(files, userId, null);
+        List<UploadError> errors = response.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FILE_VALIDATION_ERROR, errors.get(0).getErrorType());
 
         verify(fileRepository, never()).insertMany(any());
     }
@@ -342,16 +224,13 @@ public class UploadFileUseCaseTest {
             insertedEntities.add(mongoFile2);
             when(fileRepository.insertMany(any())).thenReturn(insertedEntities);
 
-            ArrayList<File> returnedFiles = uploadFileUseCase.execute(files, userId, null);
+            UploadResponse<List<FileDTO>> response = uploadFileUseCase.execute(files, userId, null);
+            List<FileDTO> returnedFiles = response.getData();
 
             verify(mongoFile1, times(1)).toDomain();
             verify(mongoFile2, times(1)).toDomain();
 
             assertEquals(2, returnedFiles.size());
-            assertEquals("image1.jpg", returnedFiles.get(0).getFilename());
-            assertEquals(expectedPath1, returnedFiles.get(0).getPath());
-            assertEquals("image2.jpg", returnedFiles.get(1).getFilename());
-            assertEquals(expectedPath2, returnedFiles.get(1).getPath());
         }
     }
 

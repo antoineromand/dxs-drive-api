@@ -3,17 +3,16 @@ package com.dxs.DriveProject.infrastructure.external.storage;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
+import java.util.UUID;
 
 import com.dxs.DriveProject.infrastructure.external.storage.files.FilesWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-import static org.mockito.Mockito.mockStatic;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.web.multipart.MultipartFile;
 
 public class LocalStorageServiceTest {
@@ -24,49 +23,47 @@ public class LocalStorageServiceTest {
 
     @BeforeEach
     void setUp() {
-        filesWrapper = Mockito.mock(FilesWrapper.class);
+        filesWrapper = mock(FilesWrapper.class);
         localStorageService = new LocalStorageService(filesWrapper);
-        file = Mockito.mock(MultipartFile.class);
+        file = mock(MultipartFile.class);
     }
 
     @Test
-    void testWriteFile_ShouldReturnCorrectPath() throws IOException {
+    void testWriteFile_ShouldReturnCorrectPath(@TempDir Path tempDir) throws IOException {
         String userId = "user123";
         String folderId = "folder456";
         String fileName = "test.txt";
-        Path parentPath = Path.of("uploads", userId, folderId);
-        Path expectedPath = Path.of(parentPath.toString(), fileName);
+        Path parentPath = tempDir.resolve("uploads").resolve(userId).resolve(folderId);
 
         when(file.getOriginalFilename()).thenReturn(fileName);
-        when(file.getInputStream()).thenReturn(getClass().getClassLoader().getResourceAsStream("test-file.txt"));
+        when(file.getInputStream()).thenReturn(mock(InputStream.class));
 
-        try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
-            mockedFiles.when(() -> Files.createDirectories(any())).then(invocation -> null);
-            mockedFiles.when(() -> Files.copy(any(InputStream.class), any(Path.class), any(StandardCopyOption.class)))
-                    .thenReturn(0L);
-            String result = localStorageService.writeFile(file, userId, parentPath.toString());
+        String result = localStorageService.writeFile(file, userId, parentPath.toString());
 
-            assertEquals(expectedPath.toString(), result);
-        }
+        assertTrue(result.startsWith(parentPath.toString()));
+        assertTrue(result.endsWith(".txt"));
+
+        String fileNameInResult = Path.of(result).getFileName().toString();
+        String uuidPart = fileNameInResult.substring(0, fileNameInResult.lastIndexOf('.'));
+        assertDoesNotThrow(() -> UUID.fromString(uuidPart));
     }
 
     @Test
-    void testWriteFileWithoutFolderId_ShouldReturnCorrectPath() throws IOException {
+    void testWriteFileWithoutFolderId_ShouldReturnCorrectPath(@TempDir Path tempDir) throws IOException {
         String userId = "user123";
         String fileName = "test.txt";
-        Path expectedPath = Path.of("uploads", userId, fileName);
+        Path parentPath = tempDir.resolve("uploads").resolve(userId);
 
         when(file.getOriginalFilename()).thenReturn(fileName);
-        when(file.getInputStream()).thenReturn(getClass().getClassLoader().getResourceAsStream("test-file.txt"));
+        when(file.getInputStream()).thenReturn(mock(InputStream.class));
 
-        try (MockedStatic<Files> mockedFiles = mockStatic(Files.class)) {
-            mockedFiles.when(() -> Files.createDirectories(any())).then(invocation -> null);
-            mockedFiles.when(() -> Files.copy(any(InputStream.class), any(Path.class), any(StandardCopyOption.class)))
-                    .thenReturn(0L);
-            String result = localStorageService.writeFile(file, userId, null);
+        String result = localStorageService.writeFile(file, userId, tempDir.resolve("uploads").toString());
 
-            assertEquals(expectedPath.toString(), result);
-        }
+        assertTrue(result.endsWith(".txt"));
+
+        String fileNameInResult = Path.of(result).getFileName().toString();
+        String uuidPart = fileNameInResult.substring(0, fileNameInResult.lastIndexOf('.'));
+        assertDoesNotThrow(() -> UUID.fromString(uuidPart));
     }
 
     @Test
@@ -152,14 +149,19 @@ public class LocalStorageServiceTest {
     void testWriteFolder_ShouldReturnPathWithParent() throws IOException {
         String userId = "xxx-xx1";
         String folderId = "xx3";
-        String parentPath = "xxx/xxx/xx2";
-        Path expectedPath = Path.of(parentPath, folderId);
-        when(filesWrapper.exists(Path.of(parentPath))).thenReturn( true);
-        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn( false);
-        when(filesWrapper.createDirectories(Path.of(parentPath, folderId))).thenReturn(expectedPath);
-        String path = localStorageService.writeFolder(userId, folderId, parentPath);
-        assertEquals(expectedPath.toString(), path);
-        assertFalse(path.isEmpty());
+        String parentPath = "uploads/xxx/xxx/xx2";
+
+        String expectedRelativePath = parentPath + "/" + folderId;
+
+        when(filesWrapper.exists(Path.of(parentPath))).thenReturn(true);
+        when(filesWrapper.exists(Path.of(parentPath, folderId))).thenReturn(false);
+        when(filesWrapper.createDirectories(Path.of(parentPath, folderId)))
+                .thenReturn(Path.of(expectedRelativePath));
+
+        String actualPath = localStorageService.writeFolder(userId, folderId, parentPath);
+
+        assertEquals(expectedRelativePath, actualPath);
+        assertFalse(actualPath.isEmpty());
     }
 
     @Test

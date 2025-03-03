@@ -1,20 +1,19 @@
 package com.dxs.DriveProject.application.usecases;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import com.dxs.DriveProject.application.usecases.dto.UploadError;
+import com.dxs.DriveProject.application.usecases.dto.UploadErrorType;
+import com.dxs.DriveProject.application.usecases.dto.UploadResponse;
 import com.dxs.DriveProject.domain.Folder;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
+import com.dxs.DriveProject.web.controllers.dto.FileDTO;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dxs.DriveProject.domain.File;
-import com.dxs.DriveProject.domain.exceptions.AccessFolderUnauthorizedException;
-import com.dxs.DriveProject.domain.exceptions.FolderNotFoundException;
 import com.dxs.DriveProject.domain.object_values.FileType;
 import com.dxs.DriveProject.infrastructure.entities.MongoFileEntity;
 import com.dxs.DriveProject.infrastructure.external.storage.IStorageService;
@@ -34,12 +33,31 @@ public class UploadFileUseCase {
         this.folderRepository = folderRepository;
     }
 
-    public ArrayList<File> execute(List<MultipartFile> files, String userId, String folderId)
+    public UploadResponse<List<FileDTO>> execute(List<MultipartFile> files, String userId, String folderId)
             throws IOException {
+        List<FileDTO> uploadedFiles = new ArrayList<>();
+        List<UploadError> errors = new ArrayList<>();
+
+        if (userId == null) {
+            errors.add(new UploadError("parameter:userId", "UserId parameter is missing ! Cannot authenticate user.", UploadErrorType.INVALID_PARAMETER));
+            return new UploadResponse<>(uploadedFiles, errors);
+        }
+        if (files == null || files.isEmpty()) {
+            errors.add(new UploadError("parameter:files", "files parameter is missing ! Files must be provided.", UploadErrorType.INVALID_PARAMETER));
+            return new UploadResponse<>(uploadedFiles, errors);
+        }
+
         String parentPath;
-        this.checkIfInputsAreValid(files, userId);
+
         if (folderId != null) {
-            this.checkIfFolderExistsWhenFolderIdIsSpecified(userId, folderId);
+            if (!folderRepository.isExist(folderId)) {
+                errors.add(new UploadError("parameter:folderId", "Folder does not exist.", UploadErrorType.FOLDER_NOT_FOUND));
+                return new UploadResponse<>(uploadedFiles, errors);
+            }
+            if (!folderRepository.isOwnedById(folderId, userId)) {
+                errors.add(new UploadError("parameter:folderId", "User is not authorize to add files in this folder.", UploadErrorType.FORBIDDEN_ACCESS));
+                return new UploadResponse<>(uploadedFiles, errors);
+            }
             Optional<MongoFolderEntity> folderMongoEntity = this.folderRepository.findByFolderIdAndUserId(folderId, userId);
             if (folderMongoEntity.isPresent()) {
                 Folder folder = folderMongoEntity.get().toDomain();
@@ -51,68 +69,53 @@ public class UploadFileUseCase {
             parentPath = null;
         }
 
-        ArrayList<MongoFileEntity> filesToInsert = files.stream()
-                .peek(this::checkIfFileIsValid)
-                .map(file -> writeFileAndConvert(file, userId, parentPath, folderId))
+        List<MongoFileEntity> filesToInsert = files.stream()
+                .filter(file -> {
+                    long maxSizeFile = 50L * 1024 * 1024;
+                    if (!FileType.isTypeValide(file.getContentType())) {
+                        errors.add(new UploadError("files:" + file.getOriginalFilename(), "File type is not valid!", UploadErrorType.FILE_VALIDATION_ERROR));
+                        return false;
+                    }
+                    if (file.getSize() <= 0) {
+                        errors.add(new UploadError("files:" + file.getOriginalFilename(), "File size must be positive!", UploadErrorType.FILE_VALIDATION_ERROR));
+                        return false;
+                    }
+                    if (file.getSize() > maxSizeFile) {
+                        errors.add(new UploadError("files:" + file.getOriginalFilename(), "File size is too large!", UploadErrorType.FILE_VALIDATION_ERROR));
+                        return false;
+                    }
+                    return true;
+                })
+                .map(file -> {
+                    try {
+                        String path = storageService.writeFile(file, userId, parentPath);
+                        return Optional.of(MongoFileEntity.fromDomain(this.convertToFile(userId, folderId, path, file)));
+                    } catch (IOException e) {
+                        errors.add(new UploadError("files:" + file.getOriginalFilename(), "File writing failed!", UploadErrorType.FILE_WRITE_ERROR));
+                        return Optional.<MongoFileEntity>empty();
+                    }
+                })
+                .flatMap(Optional::stream)
                 .collect(Collectors.toCollection(ArrayList::new));
 
+
         if (!filesToInsert.isEmpty()) {
-            ArrayList<MongoFileEntity> insertedFiles = this.fileRepository.insertMany(filesToInsert);
-            return this.convertDBFileToDomainFile(insertedFiles);
+            List<MongoFileEntity> insertedFiles = this.fileRepository.insertMany(filesToInsert);
+            return new UploadResponse<>(this.convertDBFileToDomainFile(insertedFiles), errors);
         }
 
-        return new ArrayList<>();
+        return new UploadResponse<>(uploadedFiles, errors);
 
     }
 
-    private void checkIfInputsAreValid(List<MultipartFile> files, String userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User ID parameter is missing");
-
-        }
-        if (files == null || files.isEmpty()) {
-            throw new IllegalArgumentException("Files parameter is null or empty");
-        }
-    }
-
-    private void checkIfFolderExistsWhenFolderIdIsSpecified(String userId, String folderId) {
-        if (!folderRepository.isExist(folderId)) {
-            throw new FolderNotFoundException(folderId);
-        }
-        if (!folderRepository.isOwnedById(folderId, userId)) {
-            throw new AccessFolderUnauthorizedException(folderId, userId);
-        }
-    }
-
-    private MongoFileEntity writeFileAndConvert(MultipartFile file, String userId, String folderPath, String folderId) {
-        try {
-            String path = storageService.writeFile(file, userId, folderPath);
-            return MongoFileEntity.fromDomain(this.convertToFile(userId, folderId, path, file));
-        } catch (IOException e) {
-            throw new RuntimeException("File writing failed for " + file.getOriginalFilename(), e);
-        }
-    }
-
-    private void checkIfFileIsValid(MultipartFile file) {
-        long maxSizeFile = 50L * 1024 * 1024;
-        if (!FileType.isTypeValide(file.getContentType())) {
-            throw new IllegalArgumentException("Invalid file: format is not supported");
-        }
-        if (file.getSize() <= 0) {
-            throw new IllegalArgumentException("Invalid file: size must not be equal to 0 or less");
-        }
-        if (file.getSize() > maxSizeFile) {
-            throw new IllegalArgumentException("Invalid file: size must not exceed 50 mo");
-        }
-    }
 
     private File convertToFile(String userId, String folderId, String path, MultipartFile file) {
         return new File(null, userId, folderId, file.getOriginalFilename(), path, false,
                 file.getSize(), file.getContentType(), false, new Date());
     }
 
-    private ArrayList<File> convertDBFileToDomainFile(ArrayList<MongoFileEntity> insertedFiles) {
-        return insertedFiles.stream().map(MongoFileEntity::toDomain)
+    private List<FileDTO> convertDBFileToDomainFile(List<MongoFileEntity> insertedFiles) {
+        return insertedFiles.stream().map(MongoFileEntity::toDomain).map(FileDTO::fromEntity)
                 .collect(Collectors.toCollection(ArrayList::new));
     }
 

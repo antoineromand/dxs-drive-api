@@ -1,6 +1,7 @@
 package com.dxs.DriveProject.infrastructure.repositories.file;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Repository;
@@ -17,7 +18,7 @@ public class MongoFileRepositoryImpl implements ICustomMongoFileRepository {
     }
 
     @Override
-    public ArrayList<MongoFileEntity> insertMany(ArrayList<MongoFileEntity> files) {
+    public List<MongoFileEntity> insertMany(List<MongoFileEntity> files) {
         return new ArrayList<>(mongoTemplate.insert(files, MongoFileEntity.class));
     }
 

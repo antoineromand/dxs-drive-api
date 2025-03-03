@@ -1,8 +1,9 @@
 package com.dxs.DriveProject.infrastructure.external.storage;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.Objects;
+import java.util.UUID;
 
 import com.dxs.DriveProject.infrastructure.external.storage.files.FilesWrapper;
 import org.springframework.stereotype.Service;
@@ -11,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 public class LocalStorageService implements IStorageService {
 
-    private FilesWrapper filesWrapper;
+    private final FilesWrapper filesWrapper;
 
     public LocalStorageService(FilesWrapper filesWrapper) {
         this.filesWrapper = filesWrapper;
@@ -36,7 +37,11 @@ public class LocalStorageService implements IStorageService {
             Files.createDirectories(uploadPath);
         }
 
-        Path pathFile = uploadPath.resolve(file.getOriginalFilename());
+        UUID generateId = UUID.randomUUID();
+
+        String ext = Objects.requireNonNull(file.getOriginalFilename()).substring(file.getOriginalFilename().lastIndexOf('.'));
+
+        Path pathFile = uploadPath.resolve(generateId + ext);
 
         try (var inputStream = file.getInputStream()) {
             Files.copy(inputStream, pathFile, StandardCopyOption.REPLACE_EXISTING);
@@ -55,25 +60,26 @@ public class LocalStorageService implements IStorageService {
             throw new IllegalArgumentException("Folder not found !");
         }
 
-        Path folderPath;
+        Path baseUploadPath = null;
 
         if (parentPath != null && !parentPath.isEmpty()) {
-            Path _parentPath = Path.of(parentPath);
-            if (!filesWrapper.exists(_parentPath)) {
-                throw new NoSuchFileException("Parent folder could not be founded !");
+            baseUploadPath = Path.of(parentPath);
+            if (!filesWrapper.exists(baseUploadPath)) {
+                throw new NoSuchFileException("Parent folder could not be found !");
             }
-            folderPath = Path.of(parentPath, folderId);
+            baseUploadPath = baseUploadPath.resolve(folderId);
         } else {
-            folderPath = Path.of("uploads", userId, folderId);
+            baseUploadPath = Path.of("uploads").resolve(userId).resolve(folderId);
         }
 
-        if (filesWrapper.exists(folderPath)) {
+        if (filesWrapper.exists(baseUploadPath)) {
             throw new FileAlreadyExistsException("Folder already exists !");
         }
 
-        Path result = filesWrapper.createDirectories(folderPath);
+        filesWrapper.createDirectories(baseUploadPath);
 
-        return result.toString();
+        return baseUploadPath.toString();
     }
+
 
 }

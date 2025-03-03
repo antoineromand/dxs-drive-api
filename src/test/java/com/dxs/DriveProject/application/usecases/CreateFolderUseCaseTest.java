@@ -1,5 +1,8 @@
 package com.dxs.DriveProject.application.usecases;
 
+import com.dxs.DriveProject.application.usecases.dto.UploadError;
+import com.dxs.DriveProject.application.usecases.dto.UploadErrorType;
+import com.dxs.DriveProject.application.usecases.dto.UploadResponse;
 import com.dxs.DriveProject.domain.Folder;
 import com.dxs.DriveProject.domain.exceptions.ParentFolderNotFoundException;
 import com.dxs.DriveProject.infrastructure.entities.MongoFolderEntity;
@@ -11,19 +14,27 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
+import com.dxs.DriveProject.web.controllers.dto.FolderDTO;
 import com.mongodb.client.ClientSession;
 import com.mongodb.client.MongoClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
 public class CreateFolderUseCaseTest {
+    private static final String USER_ID = "user123";
+    private static final String FOLDER_NAME = "TestFolder";
+    private static final String PARENT_ID = "parentFolderId";
+    private static final String GENERATED_FOLDER_ID = "generatedFolderId";
+    private static final String EXPECTED_PATH = "/uploads/user123/folderId123";
+    private static final String NON_EXISTING_PATH = "/non/existing/path";
+
     private IStorageService storageService;
     private ICustomMongoFolderRepository folderRepository;
     private CreateFolderUseCase usecase;
@@ -41,52 +52,45 @@ public class CreateFolderUseCaseTest {
 
     @Test
     void shouldThrowAnExceptionIfUserIdIsNull() {
-        String userId = null;
-        String parentId = null;
-        String foldername = null;
-        assertThrows(IllegalArgumentException.class, () -> {
-            this.usecase.execute(userId, foldername, parentId);
-        });
+        UploadResponse<FolderDTO> result = this.usecase.execute(null, null, null);
+        List<UploadError> errors = result.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.INVALID_PARAMETER, errors.get(0).getErrorType());
     }
 
     @Test
-    void shouldThrowAnExceptionIfFilenameIsNull() {
-        String userId = "test";
-        String parentId = null;
-        String foldername = null;
-        assertThrows(IllegalArgumentException.class, () -> {
-            this.usecase.execute(userId, foldername, parentId);
-        });
+    void shouldReturnErrorIfFoldernameIsNull() {
+        UploadResponse<FolderDTO> result = this.usecase.execute(USER_ID, null, null);
+        List<UploadError> errors = result.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.INVALID_PARAMETER, errors.get(0).getErrorType());
     }
 
     @Test
-    void shouldThrowAnExceptionIfParentIdIsSpecifiedButNotFound() {
-        String userId = "xxx-xx1u";
-        String parentId = "xxx-xx1f";
-        String foldername = "test";
+    void shouldReturnErrorsIfParentIdIsSpecifiedButNotFound() {
 
-        when(this.folderRepository.findByFolderIdAndUserId(parentId, userId)).thenReturn(Optional.empty());
+        when(this.folderRepository.findByFolderIdAndUserId(PARENT_ID, USER_ID)).thenReturn(Optional.empty());
 
-        assertThrows(ParentFolderNotFoundException.class, () -> {
-            this.usecase.execute(userId, foldername, parentId);
-        });
+        UploadResponse<FolderDTO> result = this.usecase.execute(USER_ID, FOLDER_NAME, PARENT_ID);
+        List<UploadError> errors = result.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FOLDER_NOT_FOUND, errors.get(0).getErrorType());
     }
 
     @Test
     public void shouldWriteSaveAndReturnFolder() throws IOException {
-        String userId = "user123";
-        String foldername = "TestFolder";
-        String generatedFolderId = "folderId123";
-        String expectedPath = "/uploads/user123/folderId123";
 
         when(mongoClient.startSession()).thenReturn(clientSession);
 
-        Folder folderSansPath = new Folder(null, userId, foldername, null, null, false, false, new Date());
+        Folder folderSansPath = new Folder(null, USER_ID, FOLDER_NAME, null, null, false, false, new Date());
         MongoFolderEntity entitySansPath = MongoFolderEntity.fromDomain(folderSansPath);
-        entitySansPath.setId(generatedFolderId);
+        entitySansPath.setId(GENERATED_FOLDER_ID);
 
         Folder folderAvecPath = entitySansPath.toDomain();
-        folderAvecPath.setPath(expectedPath);
+        folderAvecPath.setPath(EXPECTED_PATH);
         MongoFolderEntity entityAvecPath = MongoFolderEntity.fromDomain(folderAvecPath);
 
 
@@ -94,10 +98,15 @@ public class CreateFolderUseCaseTest {
                 .thenReturn(entitySansPath)
                 .thenReturn(entityAvecPath);
 
-        when(storageService.writeFolder(eq(userId), eq(generatedFolderId), any()))
-                .thenReturn(expectedPath);
+        when(storageService.writeFolder(eq(USER_ID), eq(GENERATED_FOLDER_ID), any()))
+                .thenReturn(EXPECTED_PATH);
 
-        Folder result = usecase.execute(userId, foldername, null);
+        UploadResponse<FolderDTO> result = usecase.execute(USER_ID, FOLDER_NAME, null);
+
+        assertNotNull(result);
+        assertNotNull(result.getData());
+        assertEquals(GENERATED_FOLDER_ID, result.getData().getId());
+        assertTrue(result.getErrors().isEmpty());
 
         verify(clientSession).startTransaction();
         verify(clientSession).commitTransaction();
@@ -108,57 +117,182 @@ public class CreateFolderUseCaseTest {
         List<MongoFolderEntity> savedEntities = captor.getAllValues();
 
         MongoFolderEntity updatedEntity = savedEntities.get(1);
-        assertEquals(expectedPath, updatedEntity.getPath());
-        assertEquals(generatedFolderId, updatedEntity.getId());
+        assertEquals(EXPECTED_PATH, updatedEntity.getPath());
+        assertEquals(GENERATED_FOLDER_ID, updatedEntity.getId());
 
-        assertEquals(expectedPath, result.getPath());
     }
 
     @Test
     public void shouldThrowAnExceptionAndRollback() throws IOException {
-        String userId = "user123";
-        String foldername = "MonDossier";
-        String parentId = "parent456";
-        String generatedFolderId = "folderGenerated123";
-        String expectedParentPath = "uploads/" + userId + "/" + parentId;
-
-        MongoFolderEntity parentFolder = MongoFolderEntity.builder()
-                .id(parentId)
-                .ownerId(userId)
+       MongoFolderEntity parentFolder = MongoFolderEntity.builder()
+                .id(PARENT_ID)
+                .ownerId(USER_ID)
                 .foldername("parentFolder")
-                .path(expectedParentPath)
+                .path(EXPECTED_PATH)
                 .bookmark(false)
                 .softDelete(false)
                 .createdAt(new Date())
                 .build();
-        when(folderRepository.findByFolderIdAndUserId(eq(parentId), eq(userId)))
+        when(folderRepository.findByFolderIdAndUserId(eq(PARENT_ID), eq(USER_ID)))
                 .thenReturn(Optional.of(parentFolder));
 
         MongoFolderEntity insertedEntity = MongoFolderEntity.builder()
-                .id(generatedFolderId)
-                .ownerId(userId)
-                .foldername(foldername)
+                .id(GENERATED_FOLDER_ID)
+                .ownerId(USER_ID)
+                .foldername(FOLDER_NAME)
                 .path(null)
-                .parentId(parentId)
+                .parentId(PARENT_ID)
                 .bookmark(false)
                 .softDelete(false)
                 .createdAt(new Date())
                 .build();
         when(folderRepository.save(any(MongoFolderEntity.class))).thenReturn(insertedEntity);
 
-        when(storageService.writeFolder(eq(userId), eq(generatedFolderId), eq(expectedParentPath)))
+        when(storageService.writeFolder(eq(USER_ID), eq(GENERATED_FOLDER_ID), eq(EXPECTED_PATH)))
                 .thenThrow(IOException.class);
 
         when(mongoClient.startSession()).thenReturn(clientSession);
 
 
 
-        assertThrows(RuntimeException.class, () -> {
-            usecase.execute(userId, foldername, parentId);
-        });
+        UploadResponse<FolderDTO> result = this.usecase.execute(USER_ID, FOLDER_NAME, PARENT_ID);
+        List<UploadError> errors = result.getErrors();
+
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FOLDER_WRITE_ERROR, errors.get(0).getErrorType());
 
         verify(clientSession).abortTransaction();
         verify(clientSession, never()).commitTransaction();
     }
+
+    @Test
+    public void shouldReturnErrorWhenFolderWithoutPathCannotBeSavedInDB() throws IOException {
+
+
+        when(mongoClient.startSession()).thenReturn(clientSession);
+
+        MongoFolderEntity parentFolder = MongoFolderEntity.builder()
+                .id(PARENT_ID)
+                .ownerId(USER_ID)
+                .foldername("parentFolder")
+                .path("/non/existing/path")
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+        when(folderRepository.findByFolderIdAndUserId(eq(PARENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(parentFolder));
+
+        when(folderRepository.save(any(MongoFolderEntity.class)))
+                .thenThrow(new RuntimeException());
+
+
+        UploadResponse<FolderDTO> result = usecase.execute(USER_ID, FOLDER_NAME, PARENT_ID);
+
+        assertNull(result.getData());
+        assertFalse(result.getErrors().isEmpty());
+        assertEquals(UploadErrorType.DATABASE_ERROR, result.getErrors().get(0).getErrorType());
+
+        verify(clientSession).startTransaction();
+        verify(clientSession).abortTransaction();
+        verify(clientSession).close();
+    }
+
+    @Test
+    public void shouldReturnErrorWhenFolderWithPathCannotBeSavedInDB() throws IOException {
+        when(mongoClient.startSession()).thenReturn(clientSession);
+
+        MongoFolderEntity parentFolder = MongoFolderEntity.builder()
+                .id("xxxfzefe")
+                .ownerId(USER_ID)
+                .foldername("parentFolder")
+                .parentId(null)
+                .path(null)
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+        MongoFolderEntity folderWithoutPath = MongoFolderEntity.builder()
+                .id("eeee")
+                .ownerId(USER_ID)
+                .foldername(FOLDER_NAME)
+                .parentId("xxxfzefe")
+                .path(null)
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+
+
+        when(folderRepository.findByFolderIdAndUserId(eq(PARENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(parentFolder));
+
+        when(folderRepository.save(any(MongoFolderEntity.class))).thenReturn(folderWithoutPath).thenThrow(new RuntimeException());
+
+        when(storageService.writeFolder(eq(USER_ID), eq("eeee"), any())).thenReturn("/non/existing/path/eeee");
+
+        UploadResponse<FolderDTO> result = usecase.execute(USER_ID, FOLDER_NAME, PARENT_ID);
+
+        assertNull(result.getData());
+        assertFalse(result.getErrors().isEmpty());
+        assertEquals(UploadErrorType.DATABASE_ERROR, result.getErrors().get(0).getErrorType());
+
+        verify(clientSession).startTransaction();
+        verify(clientSession).abortTransaction();
+        verify(clientSession).close();
+    }
+
+    @Test
+    public void shouldReturnErrorWhenParentFolderNotFoundOnDisk() throws IOException {
+        MongoFolderEntity parentFolder = MongoFolderEntity.builder()
+                .id(PARENT_ID)
+                .ownerId(USER_ID)
+                .foldername("ParentFolder")
+                .parentId(null)
+                .path("/non/existing/path")
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+        MongoFolderEntity newFolder = MongoFolderEntity.builder()
+                .id("generatedFolderId")
+                .ownerId(USER_ID)
+                .foldername(FOLDER_NAME)
+                .parentId(PARENT_ID)
+                .path(null)
+                .bookmark(false)
+                .softDelete(false)
+                .createdAt(new Date())
+                .build();
+
+        when(mongoClient.startSession()).thenReturn(clientSession);
+
+        when(folderRepository.findByFolderIdAndUserId(eq(PARENT_ID), eq(USER_ID)))
+                .thenReturn(Optional.of(parentFolder));
+
+        when(folderRepository.save(any(MongoFolderEntity.class)))
+                .thenReturn(newFolder);
+
+        when(storageService.writeFolder(eq(USER_ID), eq("generatedFolderId"), eq("/non/existing/path")))
+                .thenThrow(new NoSuchFileException("Parent folder could not be found!"));
+
+        UploadResponse<FolderDTO> result = usecase.execute(USER_ID, FOLDER_NAME, PARENT_ID);
+        List<UploadError> errors = result.getErrors();
+
+        assertNull(result.getData());
+        assertFalse(errors.isEmpty());
+        assertEquals(UploadErrorType.FOLDER_NOT_FOUND, errors.get(0).getErrorType());
+        assertEquals("folder:parent", errors.get(0).getTarget());
+
+        verify(clientSession).startTransaction();
+        verify(clientSession).abortTransaction();
+        verify(clientSession).close();
+    }
+
+
 
 }
