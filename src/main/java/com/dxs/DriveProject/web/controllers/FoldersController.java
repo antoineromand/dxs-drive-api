@@ -21,7 +21,7 @@ import java.util.List;
 
 
 @RestController()
-@RequestMapping("folders")
+@RequestMapping("private/api/v1/drive/folders")
 public class FoldersController {
     private final CreateFolderUseCase createFolderUseCase;
     private final AuthenticatedUserProvider authenticatedUserProvider;
