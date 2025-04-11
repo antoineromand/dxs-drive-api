@@ -24,7 +24,7 @@ import com.dxs.DriveProject.application.usecases.UploadFileUseCase;
 import com.dxs.DriveProject.domain.File;
 
 @RestController()
-@RequestMapping("files")
+@RequestMapping("private/api/v1/drive/files")
 public class FilesController {
     private final UploadFileUseCase uploadFileUseCase;
     private final AuthenticatedUserProvider authenticatedUserProvider;
